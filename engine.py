@@ -1,7 +1,7 @@
 import codecs
-import re 
+import re
 
-from utils import Token, HtmlTag, Variable, Expression
+from utils import SELF_CLOSING_TAGS, Expression, HtmlTag, Token, Variable
 
 
 class Lexer:    
@@ -48,59 +48,87 @@ class Lexer:
 class Parser:
     """
     Time complexity: O(n^2)
+    
     """
     def __init__(self, tokens) -> None:
         self.tokens = tokens
         self.tag_list = list()
-        self.html_tree = dict()
     
-    def create_ast(self, data):
-        self.html_tree = {tag: list() for tag in self.tag_list}
-        for i in range(len(data) - 1):
-            counter = i + 1
-            while data[i].end > data[counter].start:
-                self.html_tree[data[i]].append(data[counter])
-                counter += 1
-                if counter >= len(data) - 1:
-                    break
+    def get_html_tag_name(self, token):
+        return re.findall(r'\w+', token.content)[0]
+
+    def get_html_attributes(self, token):
+        return re.findall(r"""(\w+)=["']?((?:.(?!["']?\s+(?:\S+)=|\s*\/?[>"']))+.)["']?""", token.content)
+    
+    def get_closing_expression_index(self, start_index, token, tokens):
+        count, new_expression = start_index + 1, 0
+                        
+        while not all([tokens[count].specs == 'END%s' % token.specs, new_expression <= 0]):
+            if tokens[count].specs in ['FOR', 'IF']:
+                new_expression += 1
+            elif 'END' in tokens[count].specs:
+                new_expression -= 1
+            count += 1
+         
+        return count
+    
+    def get_closing_tag_name_and_index(self, start_index, token):
+        tag_name = self.get_html_tag_name(token)
         
-        return filter(lambda x: x[1] != [], self.html_tree.items())
+        if tag_name in SELF_CLOSING_TAGS:
+            return tag_name, False
+        
+        count, new_tag = start_index + 1, 0
+        
+        while not all([self.tokens[count].specs == '</%s>' % tag_name, new_tag <= 0]):
+            if '<%s' % tag_name in self.tokens[count].specs:
+                new_tag += 1
+            elif '</%s' % tag_name in self.tokens[count].specs:
+                new_tag -= 1
+            count += 1
+
+        return tag_name, count
     
     def parse(self, tokens):
+        current_index = 0
+        current_depth = 0
+        
         for i, token in enumerate(tokens):
             if token.type == 'TAG' and '</' not in token.content:                                      
-                tag_name = re.findall(r'\w+', token.content)[0]
-                closing_tag = list(filter(lambda x: x.content == '</%s>' % tag_name, tokens[i:]))       
+                tag_name, count = self.get_closing_tag_name_and_index(i, token) 
                 
-                if closing_tag:
-                    closing_tag = self.tokens.index(closing_tag[0])
-                    start, end = token.index, self.tokens[closing_tag].index
-                    tag = HtmlTag(tag_name, start, end)     
+                if count:
+                    closing_tag = self.tokens[count]
+                    start, end = token.index, closing_tag.index  
                 else:
-                    tag = HtmlTag(tag_name, token.index, token.index + len(token.content))
+                    start, end = token.index, token.index + len(token.content)
+                    
+                tag = HtmlTag(tag_name, start, end, attributes=self.get_html_attributes(token))
                     
             elif token.type == 'VARIABLE':
+                name = token.content
                 start, end = token.index, token.index + len(token.content)
-                tag = Variable(token.content, start, end)
+                tag = Variable(name, start, end)
 
             elif token.type == 'EXPRESSION' and 'END' not in token.specs:
-                count, new_expression = i + 1, 0
-                        
-                while all([tokens[count].specs != 'END%s' % token.specs, new_expression != 0]):
-                    if tokens[count].specs in ['FOR', 'IF']:
-                        new_expression += 1
-                    elif 'END' in tokens[count].specs:
-                        new_expression -= 1
-                    count += 1
-
-                content = token.content[:-2].strip()
-                end = tokens[count].index + len(tokens[count].content)
-                tag = Expression(content, token.index, end)
-            
-            if tag not in self.tag_list:
-                self.tag_list.append(tag)
+                count = self.get_closing_expression_index(i, token, tokens)
                 
-        return dict(self.create_ast(self.tag_list))
+                name = token.content[:-2].strip()
+                start, end = token.index, tokens[count].index + len(tokens[count].content)
+                tag = Expression(name, start, end)
+            
+            else:
+                continue
+            
+            # Created a nested dict representing the AST
+            print(tag.start, tag.end)
+            if tag.start > current_index:
+                current_depth += 1
+            current_index = tag.end
+            print(current_depth)
+            self.tag_list.append(tag)
+        
+        print(self.tag_list)
 
 
 class Interpreter:

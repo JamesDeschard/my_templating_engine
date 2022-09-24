@@ -18,4 +18,3 @@ def main():
 
 if __name__ == '__main__':
     rendered_string = main()
-    print(rendered_string)

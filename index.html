@@ -1,17 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
-
     <head>
         <meta charset="UTF-8">
         <meta http-equiv="X-UA-Compatible" content="IE=edge">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Document</title>
     </head>
-
     <body>
         
         {% if title %}
-        <h1>{{title}}</h1>
+        <h1 class="title" style="color:red;">{{title}}</h1>
         {% endif %}
 
         {% for post in posts %}
@@ -25,10 +23,11 @@
 
         {% endfor %}
 
-        {% if page.ending %}
-        <h2>{{page.ending}}</h2>
+        {% if ending %}
+        <h2>{{ending}}</h2>
         {% endif %}
-
+        <footer>
+            Copyright
+        </footer>
     </body>
-
 </html>

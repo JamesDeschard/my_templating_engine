@@ -1,4 +1,5 @@
-# Contstants
+SELF_CLOSING_TAGS = ['DOCTYPE','area', 'base', 'br', 'col', 'embed', 'hr', 'img','input', 'link', 'meta', 'param', 'source', 'track', 'wbr']
+
 
 class Token:
     def __init__(self, type, content, index):
@@ -28,16 +29,21 @@ class Token:
 
 
 class HtmlTree:
-    def __init__(self) -> None:
-        self.tree = list()
+    def __init__(self, tags) -> None:
+        self.tree = {tag: list() for tag in tags}
+        self.ast = self.create_ast(tags)
+        
         
 class HtmlTag:
-    def __init__(self, name, start, end, content=list()) -> None:
+    def __init__(self, name, start, end, attributes = dict()) -> None:
         self.name = name
         self.start = start
         self.end = end
         
-        self.content = content
+        self.attributes = attributes
+    
+    def build_tag(self):
+        return f"<{self.name} {' '.join(a[0] + '=' + a[1] for a in self.attributes)}>"
 
     def __repr__(self) -> str:
         return self.name
