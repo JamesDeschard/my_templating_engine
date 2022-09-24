@@ -10,6 +10,7 @@ def get_json_data():
 def main():
     template = 'index.html'
     context = {
+        'title': 'Hello World!',
         'posts': get_json_data()
     }
     return render_to_string(template, context)

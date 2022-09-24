@@ -1,156 +1,151 @@
 import codecs
-import copy
-import json
-import re
+import re 
 
-EXPRESSION_START = 'EXPRESSION_START'
-EXPRESSION_END = 'EXPRESSION_END'
+from utils import Token, HtmlTag, Variable, Expression
 
-VAR_START = 'VAR_START'
-VAR_END = 'VAR_END'
 
 class Lexer:    
+    """
+    Time complexity: O(nlogn)
+    """
     def __init__(self, template) -> None:
         self.template = template
-        self.tokens = []
-    
-    def tokenize_expression(self, expression):
-        expression = expression.strip()
-        tokens = list()
-        
-        if 'endfor' in expression:
-            return ['ENDFOR']
-            
-        elif 'for' in expression:
-            tokens.append('FORLOOP')
-            variable = re.findall(r'\w+$', expression)[0]
-            tokens.append(variable)
-            return tokens
-        
-        else:
-            return ['VARIABLE', expression]
-        
-    def tokenize(self):
-        expression_start = True
-        expression_end = False
-        
-        current_expression_index = 0
-        current_var_index = 0
-        
-        for index, char in enumerate(self.template):
-            if char == '{':
-                if self.template[index + 1] in '{%':
-                    if self.template[index + 1] == '%':
-                        if expression_start:
-                            current_expression_index = index + 2
-                            self.tokens.append([EXPRESSION_START, current_expression_index])
-                            expression_start = False
-                        else:
-                            expression_start = True
-                            
-                    else:
-                        current_var_index = index + 2
-                        expression_start = False
-                        
-            elif char == '}':
-                if self.template[index - 1] in '%}':
-                    if self.template[index - 1] == '%':
-                        if expression_end:
-                            self.tokens.append([EXPRESSION_END, index -1]) 
-                            expression_end = False
-                        else:
-                            self.tokens.append(self.tokenize_expression(self.template[current_expression_index:index - 1]))
-                            expression_end = True
-                    else:
-                        self.tokens.append(self.tokenize_expression(self.template[current_var_index:index - 1]))
-            
-            elif char == '<' and not expression_start:
-                count = index
-                string = char
-                tag = ''
-                while string != '>':
-                    string = self.template[count]
-                    tag += string
-                    count += 1
-                self.tokens.append(['TAG', tag])
-
-        return self.tokens
-
-class Parser:
-    def __init__(self, tokens, template) -> None:
-        self.tokens = tokens
-        self.template = template
-        self.parsed_data = []
-    
-    def group_by_expression(self):
-        indexes = [i for i, t in enumerate(self.tokens) if 'EXPRESSION' in t[0]]
-        indexes = [indexes[i:i+2] for i in range(0, len(indexes), 2)]
-        tokens = [self.tokens[i:j + 1] for i, j in indexes]
-        return tokens
-    
-    def parse(self):
-        expressions = self.group_by_expression()
-        for tokens in expressions:
-            expression = []
-            indexes = tokens[0][1] -2, tokens[-1][1] + 2
-            for token in tokens[1:-1]:
-                if token[0] == 'FORLOOP':
-                    expression.append('forloop__' + token[1])
-                else:
-                    expression.append(token[1])
-            self.parsed_data.append({indexes: expression})
-            
-        return self.parsed_data
+        self.tokens = list()
          
+    def tokenize(self):   
+        for index, char in enumerate(self.template):
+            if index != len(self.template) -1 and char + self.template[index + 1] == '{%':
+                content, pointer = str(), index + 2
+                
+                while self.template[pointer - 1] + self.template[pointer] != '%}':
+                    content += self.template[pointer]
+                    pointer += 1
+                    
+                content = self.template[index + 2 : pointer + 1]
+                self.tokens.append(Token('EXPRESSION', content, index))
             
+            elif index != len(self.template) - 1 and char + self.template[index + 1] == '{{':
+                content, pointer = str(), index + 2
+                
+                while self.template[pointer - 1] +  self.template[pointer] != '}}':
+                    content += self.template[pointer]
+                    pointer += 1
+                    
+                self.tokens.append(Token('VARIABLE', content[:-1], index))
+                     
+            elif char == '<':
+                name, pointer = str(), index
+                
+                while self.template[pointer] != '>':
+                    name += self.template[pointer]
+                    pointer += 1
+                    
+                self.tokens.append(Token('TAG', name + '>', index))
+            
+        return self.tokens
+    
+    
+class Parser:
+    """
+    Time complexity: O(n^2)
+    """
+    def __init__(self, tokens) -> None:
+        self.tokens = tokens
+        self.tag_list = list()
+        self.html_tree = dict()
+    
+    def create_ast(self, data):
+        self.html_tree = {tag: list() for tag in self.tag_list}
+        for i in range(len(data) - 1):
+            counter = i + 1
+            while data[i].end > data[counter].start:
+                self.html_tree[data[i]].append(data[counter])
+                counter += 1
+                if counter >= len(data) - 1:
+                    break
+        
+        return filter(lambda x: x[1] != [], self.html_tree.items())
+    
+    def parse(self, tokens):
+        for i, token in enumerate(tokens):
+            if token.type == 'TAG' and '</' not in token.content:                                      
+                tag_name = re.findall(r'\w+', token.content)[0]
+                closing_tag = list(filter(lambda x: x.content == '</%s>' % tag_name, tokens[i:]))       
+                
+                if closing_tag:
+                    closing_tag = self.tokens.index(closing_tag[0])
+                    start, end = token.index, self.tokens[closing_tag].index
+                    tag = HtmlTag(tag_name, start, end)     
+                else:
+                    tag = HtmlTag(tag_name, token.index, token.index + len(token.content))
+                    
+            elif token.type == 'VARIABLE':
+                start, end = token.index, token.index + len(token.content)
+                tag = Variable(token.content, start, end)
+
+            elif token.type == 'EXPRESSION' and 'END' not in token.specs:
+                count, new_expression = i + 1, 0
+                        
+                while all([tokens[count].specs != 'END%s' % token.specs, new_expression != 0]):
+                    if tokens[count].specs in ['FOR', 'IF']:
+                        new_expression += 1
+                    elif 'END' in tokens[count].specs:
+                        new_expression -= 1
+                    count += 1
+
+                content = token.content[:-2].strip()
+                end = tokens[count].index + len(tokens[count].content)
+                tag = Expression(content, token.index, end)
+            
+            if tag not in self.tag_list:
+                self.tag_list.append(tag)
+                
+        return dict(self.create_ast(self.tag_list))
+
+
 class Interpreter:
-    def __init__(self, parsed_data, template, context) -> None:
-        self.parsed_data = parsed_data
+    def __init__(self, html_tree, template, context) -> None:
+        self.html_tree = html_tree
         self.template = template
         self.context = context
+        self.rendered_string = str()
     
-    
-    def read(self):
-        index_update = (0, 0)
+    def evaluate_var(self, var):
+        var = var.split('.')
+        if len(var) == 1:
+            var = self.context.get(var[0])
+        else:
+            var = self.context.get(var[0])
+            for i in range(len(var)):
+                var = var.get(var[i])
+                
+        return var if var else None
         
-        for expression in copy.copy(self.parsed_data):
-            for indexes, operators in expression.items():
-                tags = []
-                for operator in operators:
-                    if 'forloop' in operator:
-                        context_var = operator.split('__')[1]
-                        loop = True
-                    elif operator.startswith('<'):
-                        tags.append(operator)
-                    else:
-                        tags.append(operator.split('.')[-1])
-                    
-                        
-                context_data = self.context.get(context_var)
-                
-                if loop:
-                    forloop_data = ''
-                    for data in context_data:
-                        for tag in tags:
-                            if tag.startswith('<'):
-                                forloop_data += tag
-                            else:
-                                forloop_data += data.get(tag)
-                
-                indexes = (indexes[0] + index_update[0], indexes[1] + index_update[1])
-                self.template = self.template[0:indexes[0]] + forloop_data + self.template[indexes[1]:]
-                index_update = (indexes[0] + len(forloop_data),  indexes[1] + len(forloop_data))
-                
-                
-        return self.template
-                                
+    
+    def interpret(self):
+        html_heap = list()
+        current_template_index = 0
+        
+        for tag, children in self.html_tree.items():
+            if isinstance(tag, HtmlTag):
+                current_template_index += tag.start
+            elif isinstance(tag, Variable):
+                variable_content = self.evaluate_var(tag.name)
+                break
+        print(self.rendered_string)
+           
+    
+    
 
+                
 def render_to_string(template, context):
     template = codecs.open(template, 'r', 'utf-8').read()
     result = Lexer(template).tokenize()
-    result = Parser(result, template).parse()
-    result = Interpreter(result, template, context).read()
+    result = Parser(result).parse(result)
+    # result = Interpreter(result, template, context).interpret()
     return result
+
+
 
 
         
