@@ -72,11 +72,9 @@ class Parser:
          
         return count
     
-    def get_closing_tag_name_and_index(self, start_index, token):
-        tag_name = self.get_html_tag_name(token)
-        
+    def get_closing_tag_index(self, start_index, tag_name):        
         if tag_name in SELF_CLOSING_TAGS:
-            return tag_name, False
+            return False
         
         count, new_tag = start_index + 1, 0
         
@@ -87,15 +85,17 @@ class Parser:
                 new_tag -= 1
             count += 1
 
-        return tag_name, count
-    
+        return count
+
     def parse(self, tokens):
-        current_index = 0
-        current_depth = 0
+        current_index = []
+        current_depth = {}
+        limit = 0
         
-        for i, token in enumerate(tokens):
-            if token.type == 'TAG' and '</' not in token.content:                                      
-                tag_name, count = self.get_closing_tag_name_and_index(i, token) 
+        for index, token in enumerate(tokens):
+            if token.type == 'TAG' and '</' not in token.content:   
+                tag_name = self.get_html_tag_name(token)                                   
+                count = self.get_closing_tag_index(index, tag_name) 
                 
                 if count:
                     closing_tag = self.tokens[count]
@@ -111,7 +111,7 @@ class Parser:
                 tag = Variable(name, start, end)
 
             elif token.type == 'EXPRESSION' and 'END' not in token.specs:
-                count = self.get_closing_expression_index(i, token, tokens)
+                count = self.get_closing_expression_index(index, token, tokens)
                 
                 name = token.content[:-2].strip()
                 start, end = token.index, tokens[count].index + len(tokens[count].content)
@@ -120,15 +120,51 @@ class Parser:
             else:
                 continue
             
-            # Created a nested dict representing the AST
             print(tag.start, tag.end)
-            if tag.start > current_index:
-                current_depth += 1
-            current_index = tag.end
+            
+            # Create a nested dict representing the AST
+            
+            if not current_index:
+                print('CASE 1')
+                current_index.append(tag)
+                current_depth[tag] = ''
+                
+            elif tag.start > current_index[-1].end:
+                print('CASE 2')
+                for index in range(len(current_index)):
+                    if tag.start > current_index[index].end:
+                        current_index.remove(current_index[index])
+                
+                if not current_index:
+                    current_depth.update({tag: {}})
+                else:
+                    current = self.recursive_lookup(current_index[-1], current_depth)
+                    current[tag] = {}
+                        
+                current_index.append(tag) 
+                
+            elif tag.start > current_index[-1].start < current_index[-1].end:
+                print('CASE 3')
+                print(current_index[-1])
+                current = self.recursive_lookup(current_index[-1], current_depth)
+                current[tag] = {}
+                if tag.end > limit:
+                    limit = tag.end
+                    current_index.append(tag)
+                    
             print(current_depth)
-            self.tag_list.append(tag)
-        
-        print(self.tag_list)
+    
+    def recursive_lookup(self, k, d):
+        if k in d: 
+            return d[k]
+        for v in d.values():
+            if isinstance(v, dict):
+                a = self.recursive_lookup(k, v)
+                if a is not None: 
+                    return a
+        return None
+                
+
 
 
 class Interpreter:
@@ -156,10 +192,11 @@ class Interpreter:
         
         for tag, children in self.html_tree.items():
             if isinstance(tag, HtmlTag):
-                current_template_index += tag.start
+                continue
             elif isinstance(tag, Variable):
-                variable_content = self.evaluate_var(tag.name)
-                break
+                continue
+            else:
+                continue
         print(self.rendered_string)
            
     

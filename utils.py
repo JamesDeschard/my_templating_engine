@@ -35,15 +35,22 @@ class HtmlTree:
         
         
 class HtmlTag:
-    def __init__(self, name, start, end, attributes = dict()) -> None:
+    def __init__(self, name, start, end, html_attributes = dict()) -> None:
         self.name = name
         self.start = start
         self.end = end
         
-        self.attributes = attributes
+        self.html_attributes = html_attributes
     
-    def build_tag(self):
-        return f"<{self.name} {' '.join(a[0] + '=' + a[1] for a in self.attributes)}>"
+    def tag_opening(self):
+        return f"<{self.name} {' '.join(a[0] + '=' + a[1] for a in self.html_attributes)}>"
+    
+    def tag_closing(self):
+        if self.name not in SELF_CLOSING_TAGS:
+            return f"</{self.name}>"
+        return ''
+    
+    # Add content attrs and build functions
 
     def __repr__(self) -> str:
         return self.name
