@@ -58,7 +58,7 @@ class Parser:
         self.html_tree = HtmlTree().tree
         self.limit = 0
     
-    def create_html_tree(self, tag):
+    def add_tag_to_html_tree(self, tag):
         if not self.current_index:
             self.current_index.append(tag)
             self.html_tree[tag] = {}
@@ -69,29 +69,28 @@ class Parser:
                     if tag.start > self.current_index[index].end:
                         self.current_index.pop()
                 except IndexError:
-                    self.current_index.pop()
-                    
+                    self.current_index.pop()            
             
             if not self.current_index:
                 self.html_tree.update({tag: {}})
                 
             else:
-                current = recursive_lookup(self.current_index[-1], self.html_tree)
-                current[tag] = {}
+                current_vals = recursive_lookup(self.current_index[-1], self.html_tree)
+                current_vals[tag] = {}
                     
             self.current_index.append(tag) 
             
         elif tag.start > self.current_index[-1].start < self.current_index[-1].end:
-            current = recursive_lookup(self.current_index[-1], self.html_tree)
-            
             nested = False
-            for k, v in current.items():
+            current_vals = recursive_lookup(self.current_index[-1], self.html_tree)
+            
+            for k, v in current_vals.items():
                 if k.end > tag.end:
                     v[tag] = {}
                     nested = True
                     
             if not nested:
-                current[tag] = {}
+                current_vals[tag] = {}
                 
             if tag.end > self.limit:
                 self.limit = tag.end
@@ -126,7 +125,7 @@ class Parser:
             else:
                 continue
             
-            self.create_html_tree(tag)
+            self.add_tag_to_html_tree(tag)
         
         print(self.html_tree)
         return self.html_tree
