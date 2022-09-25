@@ -158,9 +158,6 @@ class Parser:
                     limit = tag.end
                     current_index.append(tag)
 
-        # for keys, v in current_depth.items():
-        #     for x, y in v.items():
-        #         print(x, y)
         print(current_depth)
         return current_depth
     

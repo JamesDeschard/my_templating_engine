@@ -31,6 +31,9 @@ class Token:
 class HtmlTree:
     def __init__(self) -> None:
         self.ast = dict()
+    
+    def distribute_content(self):
+        pass
         
         
 class HtmlTag:
