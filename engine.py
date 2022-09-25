@@ -1,7 +1,9 @@
 import codecs
-from utils import (SELF_CLOSING_TAGS, Expression, HtmlTag, HtmlTree, Token,
-                   Variable, get_html_attributes, get_html_tag_name,
-                   recursive_lookup, get_closing_expression_index, get_closing_tag_index)
+
+from utils import (Expression, HtmlTag, HtmlTree, Token,
+                   Variable, get_closing_expression_index,
+                   get_closing_tag_index, get_html_attributes,
+                   get_html_tag_name, recursive_lookup)
 
 
 class Lexer:    
@@ -80,7 +82,7 @@ class Parser:
                     
             self.current_index.append(tag) 
             
-        elif tag.start > self.current_index[-1].start < self.current_index[-1].end:
+        elif tag.start > self.current_index[-1].start:
             nested = False
             current_vals = recursive_lookup(self.current_index[-1], self.html_tree)
             
