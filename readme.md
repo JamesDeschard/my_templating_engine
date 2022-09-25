@@ -13,11 +13,11 @@ context = {
 
 ## Create an HTML template in the index.html file
 
-Once you have added your base markup, you can add expressions and variables to it. Similar to twig or jinja
+Once you have added your base markup, you can add expressions and variables to it. Similar to twig or jinja.
 
 ### Expressions
 
-You can use {% %} tags to add forloops or conditions 
+You can use`` {% %}`` tags to add forloops or conditions 
 
 For example:
 
@@ -30,16 +30,14 @@ For example:
 or 
 
 ``` html
- {% for post in posts %}
-
+{% for post in posts %}
     <p>This markup will be added for each post in the posts variable!</p>
-
 {% endfor %}
 ```
 
 ### Variables
 
-You can use {{ }} tags to add a variable
+You can use ``{{ }}`` tags to add a variable.
 
 For example:
 
