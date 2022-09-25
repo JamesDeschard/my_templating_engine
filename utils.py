@@ -1,4 +1,62 @@
+import re
+
+### CONSTANTS ###
+
 SELF_CLOSING_TAGS = ['DOCTYPE','area', 'base', 'br', 'col', 'embed', 'hr', 'img','input', 'link', 'meta', 'param', 'source', 'track', 'wbr']
+
+
+### FUNCTIONS ###
+
+def recursive_lookup(desired_key, _dict):
+    if desired_key in _dict: 
+        return _dict[desired_key]
+    
+    for val in _dict.values():
+        if isinstance(val, dict):
+            res = recursive_lookup(desired_key, val)
+            if res is not None: 
+                return res
+            
+    return None
+
+
+def get_html_tag_name(token):
+    return re.findall(r'\w+', token.content)[0]
+
+
+def get_html_attributes(token):
+    return re.findall(r"""(\w+)=["']?((?:.(?!["']?\s+(?:\S+)=|\s*\/?[>"']))+.)["']?""", token.content)
+
+
+def get_closing_expression_index(start_index, token, tokens):
+    count, new_expression = start_index + 1, 0
+                    
+    while not all([tokens[count].specs == 'END%s' % token.specs, new_expression <= 0]):
+        if tokens[count].specs in ['FOR', 'IF']:
+            new_expression += 1
+        elif 'END' in tokens[count].specs:
+            new_expression -= 1
+        count += 1
+        
+    return count
+
+def get_closing_tag_index(start_index, tag_name, tokens):        
+    if tag_name in SELF_CLOSING_TAGS:
+        return False
+    
+    count, new_tag = start_index + 1, 0
+    
+    while not all([tokens[count].specs == '</%s>' % tag_name, new_tag <= 0]):
+        if '<%s' % tag_name in tokens[count].specs:
+            new_tag += 1
+        elif '</%s' % tag_name in tokens[count].specs:
+            new_tag -= 1
+        count += 1
+
+    return count
+
+
+### CLASSES ###
 
 
 class Token:
@@ -30,7 +88,7 @@ class Token:
 
 class HtmlTree:
     def __init__(self) -> None:
-        self.ast = dict()
+        self.tree = dict()
     
     def distribute_content(self):
         pass

@@ -1,7 +1,7 @@
 import codecs
-import re
-
-from utils import SELF_CLOSING_TAGS, Expression, HtmlTag, HtmlTree, Token, Variable
+from utils import (SELF_CLOSING_TAGS, Expression, HtmlTag, HtmlTree, Token,
+                   Variable, get_html_attributes, get_html_tag_name,
+                   recursive_lookup, get_closing_expression_index, get_closing_tag_index)
 
 
 class Lexer:    
@@ -53,49 +53,55 @@ class Parser:
     def __init__(self, tokens) -> None:
         self.tokens = tokens
         self.tag_list = list()
-    
-    def get_html_tag_name(self, token):
-        return re.findall(r'\w+', token.content)[0]
-
-    def get_html_attributes(self, token):
-        return re.findall(r"""(\w+)=["']?((?:.(?!["']?\s+(?:\S+)=|\s*\/?[>"']))+.)["']?""", token.content)
-    
-    def get_closing_expression_index(self, start_index, token, tokens):
-        count, new_expression = start_index + 1, 0
-                        
-        while not all([tokens[count].specs == 'END%s' % token.specs, new_expression <= 0]):
-            if tokens[count].specs in ['FOR', 'IF']:
-                new_expression += 1
-            elif 'END' in tokens[count].specs:
-                new_expression -= 1
-            count += 1
-         
-        return count
-    
-    def get_closing_tag_index(self, start_index, tag_name):        
-        if tag_name in SELF_CLOSING_TAGS:
-            return False
         
-        count, new_tag = start_index + 1, 0
-        
-        while not all([self.tokens[count].specs == '</%s>' % tag_name, new_tag <= 0]):
-            if '<%s' % tag_name in self.tokens[count].specs:
-                new_tag += 1
-            elif '</%s' % tag_name in self.tokens[count].specs:
-                new_tag -= 1
-            count += 1
+        self.current_index = []
+        self.html_tree = HtmlTree().tree
+        self.limit = 0
+    
+    def create_html_tree(self, tag):
+        if not self.current_index:
+            self.current_index.append(tag)
+            self.html_tree[tag] = {}
+                
+        elif tag.start > self.current_index[-1].end:
+            for index in range(len(self.current_index)):
+                try:
+                    if tag.start > self.current_index[index].end:
+                        self.current_index.pop()
+                except IndexError:
+                    self.current_index.pop()
+                    
+            
+            if not self.current_index:
+                self.html_tree.update({tag: {}})
+                
+            else:
+                current = recursive_lookup(self.current_index[-1], self.html_tree)
+                current[tag] = {}
+                    
+            self.current_index.append(tag) 
+            
+        elif tag.start > self.current_index[-1].start < self.current_index[-1].end:
+            current = recursive_lookup(self.current_index[-1], self.html_tree)
+            
+            nested = False
+            for k, v in current.items():
+                if k.end > tag.end:
+                    v[tag] = {}
+                    nested = True
+                    
+            if not nested:
+                current[tag] = {}
+                
+            if tag.end > self.limit:
+                self.limit = tag.end
+                self.current_index.append(tag)
 
-        return count
-
-    def parse(self, tokens):
-        current_index = []
-        current_depth = HtmlTree().ast
-        limit = 0
-        
+    def parse(self, tokens):      
         for index, token in enumerate(tokens):
             if token.type == 'TAG' and '</' not in token.content:   
-                tag_name = self.get_html_tag_name(token)                                   
-                count = self.get_closing_tag_index(index, tag_name) 
+                tag_name = get_html_tag_name(token)                                   
+                count = get_closing_tag_index(index, tag_name, tokens) 
                 
                 if count:
                     closing_tag = self.tokens[count]
@@ -103,7 +109,7 @@ class Parser:
                 else:
                     start, end = token.index, token.index + len(token.content)
                     
-                tag = HtmlTag(tag_name, start, end, self.get_html_attributes(token))
+                tag = HtmlTag(tag_name, start, end, get_html_attributes(token))
                     
             elif token.type == 'VARIABLE':
                 name = token.content
@@ -111,7 +117,7 @@ class Parser:
                 tag = Variable(name, start, end)
 
             elif token.type == 'EXPRESSION' and 'END' not in token.specs:
-                count = self.get_closing_expression_index(index, token, tokens)
+                count = get_closing_expression_index(index, token, tokens)
                 
                 name = token.content[:-2].strip()
                 start, end = token.index, tokens[count].index + len(tokens[count].content)
@@ -120,58 +126,10 @@ class Parser:
             else:
                 continue
             
-            if not current_index:
-                current_index.append(tag)
-                current_depth[tag] = {}
-                
-            elif tag.start > current_index[-1].end:
-                for index in range(len(current_index)):
-                    try:
-                        if tag.start > current_index[index].end:
-                            current_index.pop()
-                    except IndexError:
-                        current_index.pop()
-                        
-                
-                if not current_index:
-                    current_depth.update({tag: {}})
-                    
-                else:
-                    current = self.recursive_lookup(current_index[-1], current_depth)
-                    current[tag] = {}
-                        
-                current_index.append(tag) 
-                
-            elif tag.start > current_index[-1].start < current_index[-1].end:
-                current = self.recursive_lookup(current_index[-1], current_depth)
-                
-                nested = False
-                for k, v in current.items():
-                    if k.end > tag.end:
-                        v[tag] = {}
-                        nested = True
-                        
-                if not nested:
-                    current[tag] = {}
-                    
-                if tag.end > limit:
-                    limit = tag.end
-                    current_index.append(tag)
-
-        print(current_depth)
-        return current_depth
-    
-    def recursive_lookup(self, k, d):
-        if k in d: 
-            return d[k]
-        for v in d.values():
-            if isinstance(v, dict):
-                a = self.recursive_lookup(k, v)
-                if a is not None: 
-                    return a
-        return None
-                
-
+            self.create_html_tree(tag)
+        
+        print(self.html_tree)
+        return self.html_tree
 
 
 class Interpreter:
