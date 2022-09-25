@@ -29,9 +29,8 @@ class Token:
 
 
 class HtmlTree:
-    def __init__(self, tags) -> None:
-        self.tree = {tag: list() for tag in tags}
-        self.ast = self.create_ast(tags)
+    def __init__(self) -> None:
+        self.ast = dict()
         
         
 class HtmlTag:

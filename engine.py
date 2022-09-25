@@ -1,12 +1,12 @@
 import codecs
 import re
 
-from utils import SELF_CLOSING_TAGS, Expression, HtmlTag, Token, Variable
+from utils import SELF_CLOSING_TAGS, Expression, HtmlTag, HtmlTree, Token, Variable
 
 
 class Lexer:    
     """
-    Time complexity: O(nlogn)
+    Time complexity: O(n) (need to add next() * while loop pointer)
     """
     def __init__(self, template) -> None:
         self.template = template
@@ -89,7 +89,7 @@ class Parser:
 
     def parse(self, tokens):
         current_index = []
-        current_depth = {}
+        current_depth = HtmlTree().ast
         limit = 0
         
         for index, token in enumerate(tokens):
@@ -103,7 +103,7 @@ class Parser:
                 else:
                     start, end = token.index, token.index + len(token.content)
                     
-                tag = HtmlTag(tag_name, start, end, attributes=self.get_html_attributes(token))
+                tag = HtmlTag(tag_name, start, end, self.get_html_attributes(token))
                     
             elif token.type == 'VARIABLE':
                 name = token.content
@@ -120,23 +120,22 @@ class Parser:
             else:
                 continue
             
-            print(tag.start, tag.end)
-            
-            # Create a nested dict representing the AST
-            
             if not current_index:
-                print('CASE 1')
                 current_index.append(tag)
-                current_depth[tag] = ''
+                current_depth[tag] = {}
                 
             elif tag.start > current_index[-1].end:
-                print('CASE 2')
                 for index in range(len(current_index)):
-                    if tag.start > current_index[index].end:
-                        current_index.remove(current_index[index])
+                    try:
+                        if tag.start > current_index[index].end:
+                            current_index.pop()
+                    except IndexError:
+                        current_index.pop()
+                        
                 
                 if not current_index:
                     current_depth.update({tag: {}})
+                    
                 else:
                     current = self.recursive_lookup(current_index[-1], current_depth)
                     current[tag] = {}
@@ -144,15 +143,26 @@ class Parser:
                 current_index.append(tag) 
                 
             elif tag.start > current_index[-1].start < current_index[-1].end:
-                print('CASE 3')
-                print(current_index[-1])
                 current = self.recursive_lookup(current_index[-1], current_depth)
-                current[tag] = {}
+                
+                nested = False
+                for k, v in current.items():
+                    if k.end > tag.end:
+                        v[tag] = {}
+                        nested = True
+                        
+                if not nested:
+                    current[tag] = {}
+                    
                 if tag.end > limit:
                     limit = tag.end
                     current_index.append(tag)
-                    
-            print(current_depth)
+
+        # for keys, v in current_depth.items():
+        #     for x, y in v.items():
+        #         print(x, y)
+        print(current_depth)
+        return current_depth
     
     def recursive_lookup(self, k, d):
         if k in d: 
@@ -213,6 +223,7 @@ def render_to_string(template, context):
 
 
 
+        
         
         
     
