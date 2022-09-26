@@ -10,47 +10,4 @@
         <title>Document</title>
     </head>
 
-    <body>
-        
-        {% if title %}
-        <h1 class="title" style="color:red;">{{title}}</h1>
-        {% endif %}
-
-        {% for post in posts %}
-
-            {% if post.title == "lorem ipsum" %}
-            <h2>This is a title</h2>
-            {% endif %}
-
-            <h2>{{post.title}}</h2>
-            <p>{{post.body}}</p>
-
-        {% endfor %}
-
-        {% if ending %}
-        <h2>{{ending}}</h2>
-        {% endif %}
-
-        <div>
-            <div>
-                <div>
-                    <div>
-                        <div>
-                            <div>
-                                <h2>Hello {{name}}</h2>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <footer>
-            Copyright
-        </footer>
-
-    </body>
-
-    <script>    </script>
-
 </html>

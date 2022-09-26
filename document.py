@@ -19,22 +19,24 @@ class Document:
                 continue
                                                     
     def pretty_print(self):
-        print(self.tree)
         return pprint.pprint(self.tree)
         
         
 class Tag:
-    def __init__(self, name, start, end, content=dict(), html_attributes=dict()) -> None:
+    def __init__(self, name, start, end, content=dict(), html_attributes=list()) -> None:
         self.name = name
         self.start = start
         self.end = end
         
+        self.content = content
         self.html_attributes = html_attributes
     
-    def tag_opening(self):
-        return f"<{self.name} {' '.join(a[0] + '=' + a[1] for a in self.html_attributes)}>"
+    def opening(self):
+        if self.html_attributes: 
+            return f'''<{self.name} {' '.join(a[0] + '=' + a[1] for a in self.html_attributes)}>'''
+        return f"<{self.name}>"
     
-    def tag_closing(self):
+    def closing(self):
         if self.name not in SELF_CLOSING_TAGS:
             return f"</{self.name}>"
         return ''

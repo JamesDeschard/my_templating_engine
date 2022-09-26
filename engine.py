@@ -111,7 +111,7 @@ class Parser:
                 else:
                     start, end = token.index, token.index + len(token.content)
                     
-                tag = Tag(tag_name, start, end, get_html_attributes(token))
+                tag = Tag(tag_name, start, end, html_attributes=get_html_attributes(token))
                     
             elif token.type == 'VARIABLE':
                 name = token.content
@@ -132,11 +132,57 @@ class Parser:
         
         return self.document
 
+
+class Interpreter:
+    def __init__(self, document, context) -> None:
+        self.document = document
+        self.context = context
+        self.document.build_document()
+        
+        self.visited = list()
+        self.document_string = str()
+    
+    def render_tag(self, tag):
+        current_string = str()
+
+        if tag.content:
+            tag_content = self.render(tag.content)
+            current_string += tag.opening() + tag_content 
+        else:
+            # Problem: content is added multiple times
+            current_string += tag.opening()    
+        return current_string + tag.closing() 
+    
+
+    def render_variable(self, variable):
+        pass
+    
+    def render_expression(self, expression):
+        pass
+        
+    def render(self, content=None):
+        if content is None:
+            content = self.document.tree
+            
+        for parent in content.keys():
+            if isinstance(parent, Tag):
+                self.document_string += self.render_tag(parent)
+            elif isinstance(parent, Variable):
+                pass
+                # self.document_string += self.render_variable(parent)
+            else:
+                pass
+                # self.document_string += self.render_expression(parent)
+                
+            
+        return self.document_string
+        
+                
       
 def render_to_string(template, context):
     template = codecs.open(template, 'r', 'utf-8').read()
     result = Lexer(template).tokenize()
     result = Parser(result).parse(result)
-    result.build_document()
-    result.pretty_print()
+    result = Interpreter(result, context).render()
+    print(result)
     return result
