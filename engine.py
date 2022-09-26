@@ -1,14 +1,14 @@
 import codecs
 
-from utils import (Expression, HtmlTag, HtmlTree, Token,
-                   Variable, get_closing_expression_index,
-                   get_closing_tag_index, get_html_attributes,
-                   get_html_tag_name, recursive_lookup)
+from document import Document, Expression, Tag, Variable
+from utils import (Token, find_deepest_value, find_specific_key,
+                   get_closing_expression_index, get_closing_tag_index,
+                   get_html_attributes, get_html_tag_name)
 
-
+         
 class Lexer:    
     """
-    Time complexity: O(n) (need to add next() * while loop pointer)
+    Time complexity: O(nlogn)
     """
     def __init__(self, template) -> None:
         self.template = template
@@ -49,54 +49,55 @@ class Lexer:
     
 class Parser:
     """
-    Time complexity: O(n^2)
+    Time complexity: O(nlogn)
     
     """
     def __init__(self, tokens) -> None:
         self.tokens = tokens
         self.tag_list = list()
         
-        self.current_index = []
-        self.html_tree = HtmlTree().tree
-        self.limit = 0
+        self.current_index = list()
+        self.document = Document()
+        self.limit = int()
     
-    def add_tag_to_html_tree(self, tag):
+    def set_limit(self, tag):
+        if tag.end > self.limit:
+            self.limit = tag.end
+            self.current_index.append(tag)
+    
+    def add_tag_to_document(self, tag):
         if not self.current_index:
             self.current_index.append(tag)
-            self.html_tree[tag] = {}
+            self.document.tree[tag] = {}
                 
         elif tag.start > self.current_index[-1].end:
-            for index in range(len(self.current_index)):
-                try:
-                    if tag.start > self.current_index[index].end:
-                        self.current_index.pop()
-                except IndexError:
-                    self.current_index.pop()            
-            
+            count = len([i for i in self.current_index if tag.start > i.end])
+            self.current_index = self.current_index[:-count]
+           
             if not self.current_index:
-                self.html_tree.update({tag: {}})
+                self.document.tree.update({tag: {}})
                 
             else:
-                current_vals = recursive_lookup(self.current_index[-1], self.html_tree)
+                current_vals = find_specific_key(self.current_index[-1], self.document.tree)
                 current_vals[tag] = {}
                     
             self.current_index.append(tag) 
             
         elif tag.start > self.current_index[-1].start:
-            nested = False
-            current_vals = recursive_lookup(self.current_index[-1], self.html_tree)
+            current_vals = find_specific_key(self.current_index[-1], self.document.tree)
             
-            for k, v in current_vals.items():
-                if k.end > tag.end:
-                    v[tag] = {}
-                    nested = True
-                    
-            if not nested:
+            if len(current_vals) >= 1:
+                if list(current_vals.keys())[-1].end < tag.start:
+                    current_vals[tag] = {}
+                else:
+                    deepest = find_deepest_value(current_vals)
+                    deepest.update({tag: {}})
+            else:
                 current_vals[tag] = {}
                 
-            if tag.end > self.limit:
-                self.limit = tag.end
-                self.current_index.append(tag)
+            self.set_limit(tag)
+        
+        return True
 
     def parse(self, tokens):      
         for index, token in enumerate(tokens):
@@ -110,7 +111,7 @@ class Parser:
                 else:
                     start, end = token.index, token.index + len(token.content)
                     
-                tag = HtmlTag(tag_name, start, end, get_html_attributes(token))
+                tag = Tag(tag_name, start, end, get_html_attributes(token))
                     
             elif token.type == 'VARIABLE':
                 name = token.content
@@ -127,59 +128,15 @@ class Parser:
             else:
                 continue
             
-            self.add_tag_to_html_tree(tag)
+            self.add_tag_to_document(tag)
         
-        print(self.html_tree)
-        return self.html_tree
+        return self.document
 
-
-class Interpreter:
-    def __init__(self, html_tree, template, context) -> None:
-        self.html_tree = html_tree
-        self.template = template
-        self.context = context
-        self.rendered_string = str()
-    
-    def evaluate_var(self, var):
-        var = var.split('.')
-        if len(var) == 1:
-            var = self.context.get(var[0])
-        else:
-            var = self.context.get(var[0])
-            for i in range(len(var)):
-                var = var.get(var[i])
-                
-        return var if var else None
-        
-    
-    def interpret(self):
-        html_heap = list()
-        current_template_index = 0
-        
-        for tag, children in self.html_tree.items():
-            if isinstance(tag, HtmlTag):
-                continue
-            elif isinstance(tag, Variable):
-                continue
-            else:
-                continue
-        print(self.rendered_string)
-           
-    
-    
-
-                
+      
 def render_to_string(template, context):
     template = codecs.open(template, 'r', 'utf-8').read()
     result = Lexer(template).tokenize()
     result = Parser(result).parse(result)
-    # result = Interpreter(result, template, context).interpret()
+    result.build_document()
+    result.pretty_print()
     return result
-
-
-
-
-        
-        
-        
-    

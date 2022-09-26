@@ -7,28 +7,53 @@ SELF_CLOSING_TAGS = ['DOCTYPE','area', 'base', 'br', 'col', 'embed', 'hr', 'img'
 
 ### FUNCTIONS ###
 
-def recursive_lookup(desired_key, _dict):
+def find_specific_key(desired_key, _dict):
+    """
+    Find specific key in nested dictionary.
+    """
     if desired_key in _dict: 
         return _dict[desired_key]
     
     for val in _dict.values():
         if isinstance(val, dict):
-            res = recursive_lookup(desired_key, val)
-            if res is not None: 
-                return res
+            result = find_specific_key(desired_key, val)
+            if result is not None: 
+                return result
             
     return None
 
+def find_deepest_value(current_val):
+    """
+    Find deepest value in nested dictionary.
+    """
+    if not any([isinstance(current_val.get(k), dict) for k in current_val]):
+        return current_val
+    else:
+        for dkey in current_val:
+            if isinstance(current_val.get(dkey), dict):
+                return find_deepest_value(current_val.get(dkey))
+            else:
+                continue
+
 
 def get_html_tag_name(token):
+    """
+    Get the name of the HTML tag.
+    """
     return re.findall(r'\w+', token.content)[0]
 
 
 def get_html_attributes(token):
+    """
+    Get the attributes of the HTML tag (style, classes, id...).
+    """
     return re.findall(r"""(\w+)=["']?((?:.(?!["']?\s+(?:\S+)=|\s*\/?[>"']))+.)["']?""", token.content)
 
 
 def get_closing_expression_index(start_index, token, tokens):
+    """
+    Get the closing expression index.
+    """
     count, new_expression = start_index + 1, 0
                     
     while not all([tokens[count].specs == 'END%s' % token.specs, new_expression <= 0]):
@@ -40,7 +65,10 @@ def get_closing_expression_index(start_index, token, tokens):
         
     return count
 
-def get_closing_tag_index(start_index, tag_name, tokens):        
+def get_closing_tag_index(start_index, tag_name, tokens):   
+    """
+    Get the closing tag index.
+    """     
     if tag_name in SELF_CLOSING_TAGS:
         return False
     
@@ -84,53 +112,4 @@ class Token:
 
     def __repr__(self) -> str:
         return f'{self.type}:{self.specs}:{self.index}'
-
-
-class HtmlTree:
-    def __init__(self) -> None:
-        self.tree = dict()
-    
-    def distribute_content(self):
-        pass
-        
-        
-class HtmlTag:
-    def __init__(self, name, start, end, html_attributes = dict()) -> None:
-        self.name = name
-        self.start = start
-        self.end = end
-        
-        self.html_attributes = html_attributes
-    
-    def tag_opening(self):
-        return f"<{self.name} {' '.join(a[0] + '=' + a[1] for a in self.html_attributes)}>"
-    
-    def tag_closing(self):
-        if self.name not in SELF_CLOSING_TAGS:
-            return f"</{self.name}>"
-        return ''
-    
-    # Add content attrs and build functions
-
-    def __repr__(self) -> str:
-        return self.name
-
-
-class Variable:
-    def __init__(self, name, start, end) -> None:
-        self.name = name
-        self.start = start
-        self.end = end
-
-    def __repr__(self) -> str:
-        return self.name
-    
-class Expression:
-    def __init__(self, name, start, end) -> None:
-        self.name = name
-        self.start = start
-        self.end = end
-
-    def __repr__(self) -> str:
-        return self.name
     
