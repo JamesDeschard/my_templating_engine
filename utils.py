@@ -6,6 +6,24 @@ SELF_CLOSING_TAGS = ['DOCTYPE','area', 'base', 'br', 'col', 'embed', 'hr', 'img'
 
 
 ### FUNCTIONS ###
+def depth(_dict):
+    """
+    Returns a list of the depth of each key in a nested dictionary.
+    """
+    depth = []
+    stack = [(_dict, list(_dict.keys()))]
+    while stack:
+        cur, keys = stack.pop()
+        while keys:
+            k, keys = keys[0], keys[1:]
+            depth.append((k, len(stack) + 1))
+            v = cur[k]
+            if isinstance(v, dict):
+                stack.append((cur, keys))
+                stack.append((v, list(v.keys())))
+                break
+    return dict(depth)
+
 
 def find_specific_key(desired_key, _dict):
     """

@@ -18,8 +18,8 @@ class Document:
             else:
                 continue
                                                     
-    def pretty_print(self):
-        return pprint.pprint(self.tree)
+    def prettify(self):
+        return pprint.pformat(self.tree)
         
         
 class Tag:
@@ -33,7 +33,7 @@ class Tag:
     
     def opening(self):
         if self.html_attributes: 
-            return f'''<{self.name} {' '.join(a[0] + '=' + a[1] for a in self.html_attributes)}>'''
+            return f'''<{self.name} {' '.join(a[0] + '=' + '"' + a[1] + '"' for a in self.html_attributes)}>'''
         return f"<{self.name}>"
     
     def closing(self):
@@ -49,19 +49,25 @@ class Tag:
 
 class Variable:
     def __init__(self, name, start, end) -> None:
-        self.name = name
+        self.variable_name = name
         self.start = start
         self.end = end
+    
+    def get_variable_from_context(self, context):
+        return context.get(self.variable_name, '')
 
     def __repr__(self) -> str:
-        return self.name
+        return self.variable_name
     
     
 class Expression:
-    def __init__(self, name, start, end) -> None:
-        self.name = name
+    def __init__(self, expression, start, end) -> None:
+        self.expression = expression
         self.start = start
         self.end = end
+    
+    def evaluate_expression(self, context):
+        pass
 
     def __repr__(self) -> str:
-        return self.name
+        return self.expression

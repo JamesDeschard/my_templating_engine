@@ -1,7 +1,7 @@
 import codecs
 
 from document import Document, Expression, Tag, Variable
-from utils import (Token, find_deepest_value, find_specific_key,
+from utils import (Token, depth, find_deepest_value, find_specific_key,
                    get_closing_expression_index, get_closing_tag_index,
                    get_html_attributes, get_html_tag_name)
 
@@ -43,7 +43,7 @@ class Lexer:
                     pointer += 1
                     
                 self.tokens.append(Token('TAG', name + '>', index))
-            
+
         return self.tokens
     
     
@@ -138,44 +138,40 @@ class Interpreter:
         self.document = document
         self.context = context
         self.document.build_document()
+        self.depth = depth(self.document.tree)
         
-        self.visited = list()
+        self.current_tag = str()
         self.document_string = str()
+        
+        self.render(self.document.tree)
+        
     
     def render_tag(self, tag):
-        current_string = str()
+        is_variable = isinstance(tag, Variable)
+        is_expression = isinstance(tag, Expression)
+        
+        if is_variable:
+            return tag.get_variable_from_context(self.context)
+        elif is_expression:
+            return ''
+
+        current_string = tag.opening()
 
         if tag.content:
-            tag_content = self.render(tag.content)
-            current_string += tag.opening() + tag_content 
-        else:
-            # Problem: content is added multiple times
-            current_string += tag.opening()    
+            self.current_tag = str()
+            current_string += self.render(tag.content)
+            
         return current_string + tag.closing() 
-    
+            
+    def render(self, tag):
+        for parent in tag.keys():
+            self.current_tag += self.render_tag(parent)
+            
+            if self.depth.get(parent) == 1 and parent == list(self.document.tree.keys())[-1]:
+                self.document_string += self.current_tag
+            
+        return self.current_tag
 
-    def render_variable(self, variable):
-        pass
-    
-    def render_expression(self, expression):
-        pass
-        
-    def render(self, content=None):
-        if content is None:
-            content = self.document.tree
-            
-        for parent in content.keys():
-            if isinstance(parent, Tag):
-                self.document_string += self.render_tag(parent)
-            elif isinstance(parent, Variable):
-                pass
-                # self.document_string += self.render_variable(parent)
-            else:
-                pass
-                # self.document_string += self.render_expression(parent)
-                
-            
-        return self.document_string
         
                 
       
@@ -183,6 +179,9 @@ def render_to_string(template, context):
     template = codecs.open(template, 'r', 'utf-8').read()
     result = Lexer(template).tokenize()
     result = Parser(result).parse(result)
-    result = Interpreter(result, context).render()
-    print(result)
+    result = Interpreter(result, context)
+    print(result.document_string)
     return result
+
+
+                
