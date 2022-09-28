@@ -2,6 +2,7 @@ import re
 
 ### CONSTANTS ###
 
+OPERATORS = ['==', '!=', '>', '<', '>=', '<=']
 SELF_CLOSING_TAGS = ['DOCTYPE','area', 'base', 'br', 'col', 'embed', 'hr', 'img','input', 'link', 'meta', 'param', 'source', 'track', 'wbr']
 
 

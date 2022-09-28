@@ -153,6 +153,7 @@ class Interpreter:
         if is_variable:
             return tag.get_variable_from_context(self.context)
         elif is_expression:
+            tag.evaluate_expression(self.context)
             return ''
 
         current_string = tag.opening()
@@ -173,13 +174,12 @@ class Interpreter:
         return self.current_tag
 
         
-                
-      
 def render_to_string(template, context):
     template = codecs.open(template, 'r', 'utf-8').read()
     result = Lexer(template).tokenize()
     result = Parser(result).parse(result)
     result = Interpreter(result, context)
+    print()
     print(result.document_string)
     return result
 
