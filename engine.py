@@ -12,7 +12,7 @@ class Lexer:
     """
     def __init__(self, template) -> None:
         self.template = template
-        self.tokens = list()
+        self.tokens = []
          
     def tokenize(self):   
         for index, char in enumerate(self.template):
@@ -54,9 +54,9 @@ class Parser:
     """
     def __init__(self, tokens) -> None:
         self.tokens = tokens
-        self.tag_list = list()
+        self.tag_list = []
         
-        self.current_index = list()
+        self.current_index = []
         self.document = Document()
         self.limit = int()
     
@@ -96,39 +96,36 @@ class Parser:
                 current_vals[tag] = {}
                 
             self.set_limit(tag)
-        
-        return True
 
     def parse(self, tokens):      
         for index, token in enumerate(tokens):
             if token.type == 'TAG' and '</' not in token.content:   
                 tag_name = get_html_tag_name(token)                                   
-                count = get_closing_tag_index(index, tag_name, tokens) 
+                tag_index = get_closing_tag_index(index, tag_name, tokens) 
                 
-                if count:
-                    closing_tag = self.tokens[count]
+                if tag_index:
+                    closing_tag = self.tokens[tag_index]
                     start, end = token.index, closing_tag.index  
                 else:
                     start, end = token.index, token.index + len(token.content)
-                    
-                tag = Tag(tag_name, start, end, html_attributes=get_html_attributes(token))
+                
+                html_attrs = get_html_attributes(token)
+                self.add_tag_to_document(Tag(tag_name, start, end, html_attrs=html_attrs))
                     
             elif token.type == 'VARIABLE':
                 name = token.content
                 start, end = token.index, token.index + len(token.content)
-                tag = Variable(name, start, end)
+                self.add_tag_to_document(tag = Variable(name, start, end))
 
             elif token.type == 'EXPRESSION' and 'END' not in token.specs:
-                count = get_closing_expression_index(index, token, tokens)
+                tag_index = get_closing_expression_index(index, token, tokens)
                 
                 name = token.content[:-2].strip()
-                start, end = token.index, tokens[count].index + len(tokens[count].content)
-                tag = Expression(name, start, end)
+                start, end = token.index, tokens[tag_index].index + len(tokens[tag_index].content)
+                self.add_tag_to_document(Expression(name, start, end))
             
             else:
                 continue
-            
-            self.add_tag_to_document(tag)
         
         return self.document
 
@@ -138,37 +135,48 @@ class Interpreter:
         self.document = document
         self.context = context
         self.document.build_document()
-        self.depth = depth(self.document.tree)
         
         self.current_tag = str()
         self.document_string = str()
         
         self.render(self.document.tree)
-        
     
-    def render_tag(self, tag):
-        is_variable = isinstance(tag, Variable)
-        is_expression = isinstance(tag, Expression)
-        
-        if is_variable:
-            return tag.get_variable_from_context(self.context)
-        elif is_expression:
-            tag.evaluate_expression(self.context)
-            return ''
-
+    def reset_current_string(self):
+        self.current_tag = str()
+    
+    def visit_tag(self, tag):
         current_string = tag.opening()
-
         if tag.content:
-            self.current_tag = str()
+            self.reset_current_string()
             current_string += self.render(tag.content)
             
-        return current_string + tag.closing() 
-            
+        return current_string + tag.closing()
+    
+    def visit_variable(self, variable):
+        return variable.get_variable_from_context(self.context)
+    
+    def visit_expression(self, expression):
+        condition = expression.evaluate_expression(self.context)
+        if condition:
+            children = find_specific_key(expression, self.document.tree)
+            self.reset_current_string()
+            return self.render(children)
+        
+        return ''
+    
+    def dispatch_node(self, node):
+        if isinstance(node, Tag):
+            return self.visit_tag(node)
+        elif isinstance(node, Variable):
+            return self.visit_variable(node)
+        elif isinstance(node, Expression):
+            return self.visit_expression(node)
+
     def render(self, tag):
         for parent in tag.keys():
-            self.current_tag += self.render_tag(parent)
+            self.current_tag += self.dispatch_node(parent)
             
-            if self.depth.get(parent) == 1 and parent == list(self.document.tree.keys())[-1]:
+            if parent == list(self.document.tree.keys())[-1]:
                 self.document_string += self.current_tag
             
         return self.current_tag
@@ -181,6 +189,7 @@ def render_to_string(template, context):
     result = Interpreter(result, context)
     print()
     print(result.document_string)
+    print()
     return result
 
 

@@ -10,8 +10,8 @@ def get_json_data():
 def main():
     template = 'index.html'
     context = {
-        'title': 'Hello Caroline!',
-        'posts': get_json_data()
+        'test': {'name': 'James', 'age': 20},
+        'name': 'James',
     }
     return render_to_string(template, context)
 

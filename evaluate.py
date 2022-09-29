@@ -27,6 +27,15 @@ atom        :   INT|FLOAT|IDENTIFIER
             :   LPAREN expr RPAREN
 """
 
+### SYNTAXE ###
+
+"""
+mathematical operations : +, -, *, /,^
+logical operations : ==, !=, >, <, >=, <=
+comparison operations : and, or, not
+set variables : VAR (identifier = string) = (expression)
+"""
+
 ###CONTANTS ###
 
 PLUS = 'PLUS'
@@ -521,17 +530,12 @@ global_symbol_table.set("null", Number(0))
 def evaluate(expression):
     lexer = Lexer(expression)
     result = lexer.get_tokens()
-    print(result)
 
     parser = Parser(result)
     result = parser.parse()
-    print(result)
 
     interpreter = Interpreter()
     context = Context('<program>')
     context.symbol_table = global_symbol_table
     result = interpreter.visit(result, context)
     return result.value
-
-if __name__ == '__main__':
-    print(evaluate('2 + 2 == 3 AND 4 + 4 == 8'))
