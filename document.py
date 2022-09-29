@@ -1,6 +1,6 @@
 import pprint
 
-from evaluate_expression import calc
+from evaluate_expression import evaluate
 from utils import SELF_CLOSING_TAGS, OPERATORS
 
 
@@ -24,6 +24,8 @@ class Document:
         
         
 class Tag:
+    # self.content should be called self.children
+    # Make content attribute to register content which is not in child tag
     def __init__(self, name, start, end, content=dict(), html_attributes=list()) -> None:
         self.name = name
         self.start = start
@@ -41,8 +43,6 @@ class Tag:
         if self.name not in SELF_CLOSING_TAGS:
             return f"</{self.name}>"
         return ''
-    
-    # Add content attrs and build functions
 
     def __repr__(self) -> str:
         return self.name
@@ -71,27 +71,13 @@ class Expression:
         return context.get(variable, False)
     
     def check_if_expression_validity(self, expression, context):
-        expression = expression.split()
+        expression = evaluate(expression)
+        expression = True if expression else False
+        return expression
         
-        if len(expression) == 1:
-            expression = expression[0]
-            if expression == 'True':
-                return True
-            elif all(e for e in expression if e.isalpha()):
-                return self.get_variable(expression, False)
-            else:
-                return False
-
-        elif len(expression) == 3 and expression[1] in OPERATORS:
-            print('EVALUATE CONDITION, OPERATOR, CONDITION')
-            # Get both variables and run calc on them
-            
-        else:
-            raise ValueError("Invalid expression: %s" % self.expression)
-    
     def evaluate_expression(self, context):
-        expression_command = self.expression.split()[0].lower()
-        expression_content = self.expression[len(expression_command):].strip().lower()
+        expression_command = self.expression.split()[0]
+        expression_content = self.expression[len(expression_command):].strip()
 
         if expression_command == 'for':
             pass
