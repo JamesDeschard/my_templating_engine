@@ -71,15 +71,18 @@ class Expression:
     
     def set_context(self, context):
         self.context = context
-        
+           
     def evaluate_expression(self, context):
         self.set_context(context)
         expression_command = self.expression.split()[0]
         expression_content = self.expression[len(expression_command):].strip()
 
         if expression_command == 'for':
-            split_content = expression_content.split()
-            loop_var, iterable_var = split_content[0], split_content[-1]
+            loop_var, logical_operator, iterable_var = expression_content.split()
+            
+            if logical_operator != 'in':
+                raise SyntaxError(f"Expected 'in' keyword, got {logical_operator}")
+            
             iterable_var = RetrieveVarsFromExpression(expression_command, iterable_var, self.context).manager()
             return expression_command, (loop_var, iterable_var)
         
@@ -88,7 +91,7 @@ class Expression:
             evaluation = evaluate(expression)
             evaluation = True if evaluation else False
             return expression_command, evaluation
-        
+            
         else:
             raise ValueError(f"Invalid expression command: {expression_command}")
 

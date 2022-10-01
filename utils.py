@@ -1,16 +1,25 @@
 import copy
-from operator import ne
 import re
-import parser
-import string
+import os
+
 
 
 ### CONSTANTS ###
-OPERATORS = ['+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', 'and', 'or', 'not']
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MATHEMATICAL_OPERATORS = ['+','-','*','^','.','/','(',')']
+LOGICAL_OPERATORS = ['==', '!=', '>', '<', '>=', '<=', 'and', 'or', 'not']
 SELF_CLOSING_TAGS = ['DOCTYPE','area', 'base', 'br', 'col', 'embed', 'hr', 'img','input', 'link', 'meta', 'param', 'source', 'track', 'wbr']
 
 
 ### FUNCTIONS ###
+
+def add_tabulation_and_line_breaks(_string, tabulation=0):
+    """
+    Returns a string with tabulations and line breaks.
+    """
+    return '\n' + '  ' * tabulation + _string
+
 def depth(_dict):
     """
     Returns a list of the depth of each key in a nested dictionary.
@@ -108,6 +117,14 @@ def get_closing_tag_index(start_index, tag_name, tokens):
 
 
 class RetrieveVarsFromExpression:
+    """
+    Gets the value of a variable from the context.
+    Works with simple as well as nested variables.
+    If a variable is a mathematical expression or a string 
+    it is left untouched.
+    
+    Returns the full expression, ready to be evaluated.
+    """
     def __init__(self, expression_type, expression, context) -> None:
         self.expression_type = expression_type
         self.expression = expression
@@ -132,7 +149,7 @@ class RetrieveVarsFromExpression:
     
     def build_expression_for_evaluation(self, existing_variables):
         expression_terms = self.expression.split()
-        operator_indexes = [expression_terms.index(x) for x in expression_terms if x in OPERATORS]
+        operator_indexes = [expression_terms.index(x) for x in expression_terms if x in LOGICAL_OPERATORS]
 
         fill_operator_indexes = []
         for index, var_name in enumerate(existing_variables):
@@ -157,19 +174,19 @@ class RetrieveVarsFromExpression:
         return variable
     
     def is_mathematical_expression(self, var):
-        return all([v in ['+','-','*','^','.'] or v.isdigit() for v in var])
+        return all([v in MATHEMATICAL_OPERATORS or v.isdigit() for v in var])
     
     def is_string(self, var):
-        return all([var.startswith('"'), var.endswith('"')])
+        return all([var.startswith('"'), var.endswith('"')]) 
     
     def retrieve(self, var):
         if self.is_string(var):
             return var
         elif self.is_mathematical_expression(var):
             return var
-        elif var in OPERATORS:
+        elif var in LOGICAL_OPERATORS:
             return None
-
+        
         current_var = var.split('.')
                 
         if len(current_var) == 1:

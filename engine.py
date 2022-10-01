@@ -1,9 +1,16 @@
 import codecs
+import os
 
-from document import Document, Expression, Tag, Variable, RetrieveVarsFromExpression
-from utils import (depth, find_deepest_value, find_specific_key,
+from document import (Document, Expression, RetrieveVarsFromExpression, Tag,
+                      Variable)
+from utils import (BASE_DIR, add_tabulation_and_line_breaks, depth,
+                   find_deepest_value, find_specific_key,
                    get_closing_expression_index, get_closing_tag_index,
                    get_html_attributes, get_html_tag_name)
+
+EXPRESSION = 'EXPRESSION'
+VARIABLE = 'VARIABLE'
+TAG = 'TAG'
 
 
 class Token:
@@ -35,48 +42,80 @@ class Token:
          
 class Lexer:    
     """
-    Time complexity: O(nlogn)
+    Time complexity: O(n)
+    One iteration over the self.template variable.
     """
     def __init__(self, template) -> None:
         self.template = template
         self.tokens = []
-         
-    def tokenize(self):   
-        for index, char in enumerate(self.template):
-            if index != len(self.template) -1 and char + self.template[index + 1] == '{%':
-                content, pointer = str(), index + 2
-                
-                while self.template[pointer - 1] + self.template[pointer] != '%}':
-                    content += self.template[pointer]
-                    pointer += 1
-                    
-                content = self.template[index + 2 : pointer + 1]
-                self.tokens.append(Token('EXPRESSION', content, index))
+        
+        self._index = -1
+        self.current_char = None
+        self.advance()
+    
+    def advance(self):
+        self._index += 1
+        if self._index >= len(self.template):
+            self.current_char = None
+        else:
+            self.current_char= self.template[self._index]
+    
+    def set_start_index_and_content(self, tag=False):
+        if not tag:
+            self.advance()
+            return self._index - 1, ''
+    
+    def make_expression(self):
+        self.advance()
+        
+        if self.current_char == '%':
+            start_index, content= self.set_start_index_and_content()
             
-            elif index != len(self.template) - 1 and char + self.template[index + 1] == '{{':
-                content, pointer = str(), index + 2
-                
-                while self.template[pointer - 1] +  self.template[pointer] != '}}':
-                    content += self.template[pointer]
-                    pointer += 1
-                    
-                self.tokens.append(Token('VARIABLE', content[:-1], index))
-                     
-            elif char == '<':
-                name, pointer = str(), index
-                
-                while self.template[pointer] != '>':
-                    name += self.template[pointer]
-                    pointer += 1
-                    
-                self.tokens.append(Token('TAG', name + '>', index))
+            while self.current_char + self.template[self._index + 1] != '%}':
+                content += self.current_char
+                self.advance()
+            
+            self.advance()
+            if self.current_char == '}':
+                self.tokens.append(Token(EXPRESSION, content, start_index))
+            
+        elif self.current_char == '{':
+            self.make_variable()
 
+    def make_variable(self):
+        start_index, content= self.set_start_index_and_content()
+        
+        while self.current_char + self.template[self._index + 1] != '}}':
+            content += self.current_char
+            self.advance()
+            
+        self.tokens.append(Token(VARIABLE, content, start_index))
+    
+    def make_tag(self):
+        start_index, content= self.set_start_index_and_content()
+        content += '<'
+
+        while self.current_char != '>':
+            content += self.current_char
+            self.advance()
+            
+        self.tokens.append(Token(TAG, content + '>', start_index))
+        
+    def tokenize(self):   
+        while self.current_char is not None:
+            if self.current_char == '{':
+                self.make_expression()
+            elif self.current_char == '<':
+                self.make_tag()
+            else:
+                self.advance()
+        
         return self.tokens
     
     
 class Parser:
     """
-    Time complexity: O(nlogn)
+    Time complexity: O(n) ??? nlogn?
     
     """
     def __init__(self, tokens) -> None:
@@ -85,11 +124,17 @@ class Parser:
         
         self.current_index = []
         self.document = Document()
-        self.limit = int()
+        self.limit = 0
+        
+    def set_limit(self, tag):
+        self.limit = tag.end
     
+    def add_new_child(self, parent, child):
+        parent[child] = {} 
+        
     def add_tag_to_document(self, tag):
         if not self.current_index:
-            self.document.tree[tag] = {}
+            self.add_new_child(self.document.tree, tag)
                 
         elif tag.start > self.current_index[-1].end:                            
             count = len([i for i in self.current_index if tag.start > i.end])
@@ -99,29 +144,29 @@ class Parser:
                 self.document.tree.update({tag: {}})
                 
             else:
-                current_keys = find_specific_key(self.current_index[-1], self.document.tree)
-                current_keys[tag] = {}                  
+                parent = find_specific_key(self.current_index[-1], self.document.tree)
+                self.add_new_child(parent, tag)                  
             
         elif tag.start > self.current_index[-1].start:                          
-            current_keys = find_specific_key(self.current_index[-1], self.document.tree)
+            parents = find_specific_key(self.current_index[-1], self.document.tree)
             
-            if len(current_keys) >= 1:
-                if list(current_keys.keys())[-1].end < tag.start:
-                    current_keys[tag] = {}
+            if len(parents) >= 1:
+                if list(parents.keys())[-1].end < tag.start:
+                    self.add_new_child(parents, tag) 
                 else:
-                    current_val = find_deepest_value(current_keys)
+                    current_val = find_deepest_value(parents)
                     current_val.update({tag: {}})
             else:
-                current_keys[tag] = {}
+                self.add_new_child(parents, tag)
                 
             if tag.end > self.limit:
-                self.limit = tag.end
+                self.set_limit(tag)
             
         self.current_index.append(tag)
 
     def parse(self, tokens):      
         for index, token in enumerate(tokens):
-            if token.type == 'TAG' and '</' not in token.content:   
+            if token.type == TAG and '</' not in token.content:   
                 tag_name = get_html_tag_name(token)                                   
                 tag_index = get_closing_tag_index(index, tag_name, tokens) 
                 
@@ -134,14 +179,14 @@ class Parser:
                 html_attrs = get_html_attributes(token)
                 self.add_tag_to_document(Tag(tag_name, start, end, html_attrs=html_attrs))
                     
-            elif token.type == 'VARIABLE':
+            elif token.type == VARIABLE:
                 name = token.content
                 start, end = token.index, token.index + len(token.content)
-                self.add_tag_to_document(tag = Variable(name, start, end))
+                self.add_tag_to_document(Variable(name, start, end))
 
-            elif token.type == 'EXPRESSION' and 'END' not in token.specs:
+            elif token.type == EXPRESSION and 'END' not in token.specs:
                 tag_index = get_closing_expression_index(index, token, tokens)
-                name = token.content[:-2].strip()
+                name = token.content.strip()
                 start, end = token.index, tokens[tag_index].index + len(tokens[tag_index].content)
                 self.add_tag_to_document(Expression(name, start, end))
             
@@ -156,6 +201,7 @@ class Interpreter:
         self.document = document
         self.context = context
         self.document.build_document()
+        self.depth = depth(self.document.tree)
         
         self.current_tag = str()
         self.document_string = str()
@@ -173,8 +219,13 @@ class Interpreter:
         if tag.content:
             self.reset_current_string()
             current_string += self.render(tag.content)
-            
-        return current_string + tag.closing()
+        
+        current_depth = self.depth.get(tag)
+        
+        return current_string + add_tabulation_and_line_breaks(
+            tag.closing(), 
+            tabulation=current_depth - 1
+        )
     
     def visit_variable(self, variable):
         var_type = variable.__class__.__name__
@@ -190,6 +241,7 @@ class Interpreter:
             children = find_specific_key(expression, self.document.tree)
             looped_var, iterable_var = expression_condition
             original_context = self.context
+            
             forloop_content = ''
             
             for iterable in iterable_var:
@@ -206,7 +258,10 @@ class Interpreter:
     def render(self, tag):
         for parent in tag.keys():
             if isinstance(parent, Tag):
-                self.current_tag += self.visit_tag(parent)
+                self.current_tag += add_tabulation_and_line_breaks(
+                    self.visit_tag(parent), 
+                    tabulation=self.depth.get(parent) - 1
+                )
             elif isinstance(parent, Variable):
                 self.current_tag += self.visit_variable(parent)
             elif isinstance(parent, Expression):
@@ -217,15 +272,26 @@ class Interpreter:
             
         return self.current_tag
 
+
+def get_template(template):
+    templates = os.listdir('templates')
+    if template in templates:
+        template_path = os.path.join(BASE_DIR, 'templates', template)
+        return codecs.open(template_path, 'r', 'utf-8').read()
+    
+    else: return False
+        
         
 def render_to_string(template, context):
-    template = codecs.open(template, 'r', 'utf-8').read()
+    template = get_template(template)
+    if not template:
+        raise Exception('Template does not exist')
+    
     result = Lexer(template).tokenize()
     result = Parser(result).parse(result)
     result = Interpreter(result, context)
-    print()
     print(result.document_string)
-    print()
+
     return result
 
 
