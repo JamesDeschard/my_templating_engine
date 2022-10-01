@@ -1,9 +1,36 @@
 import codecs
 
-from document import Document, Expression, Tag, Variable
-from utils import (Token, depth, find_deepest_value, find_specific_key,
+from document import Document, Expression, Tag, Variable, RetrieveVarsFromExpression
+from utils import (depth, find_deepest_value, find_specific_key,
                    get_closing_expression_index, get_closing_tag_index,
                    get_html_attributes, get_html_tag_name)
+
+
+class Token:
+    def __init__(self, type, content, index):
+        self.type = type
+        self.content = content
+        self.index = index
+        self.specs = self.get_specs()
+    
+    def get_specs(self):
+        if 'endfor' in self.content:
+            return 'ENDFOR'
+        elif 'for' in self.content:
+            return 'FOR'
+        elif 'endif' in self.content:
+            return 'ENDIF'
+        elif 'if' in self.content:
+            return 'IF'
+        
+        if self.type == 'TAG':
+            return self.content
+        
+        if self.type == 'VARIABLE':
+            return self.content
+
+    def __repr__(self) -> str:
+        return f'{self.type}:{self.specs}:{self.index}'
 
          
 class Lexer:    
@@ -60,17 +87,11 @@ class Parser:
         self.document = Document()
         self.limit = int()
     
-    def set_limit(self, tag):
-        if tag.end > self.limit:
-            self.limit = tag.end
-            self.current_index.append(tag)
-    
     def add_tag_to_document(self, tag):
         if not self.current_index:
-            self.current_index.append(tag)
             self.document.tree[tag] = {}
                 
-        elif tag.start > self.current_index[-1].end:
+        elif tag.start > self.current_index[-1].end:                            
             count = len([i for i in self.current_index if tag.start > i.end])
             self.current_index = self.current_index[:-count]
            
@@ -78,24 +99,25 @@ class Parser:
                 self.document.tree.update({tag: {}})
                 
             else:
-                current_vals = find_specific_key(self.current_index[-1], self.document.tree)
-                current_vals[tag] = {}
-                    
-            self.current_index.append(tag) 
+                current_keys = find_specific_key(self.current_index[-1], self.document.tree)
+                current_keys[tag] = {}                  
             
-        elif tag.start > self.current_index[-1].start:
-            current_vals = find_specific_key(self.current_index[-1], self.document.tree)
+        elif tag.start > self.current_index[-1].start:                          
+            current_keys = find_specific_key(self.current_index[-1], self.document.tree)
             
-            if len(current_vals) >= 1:
-                if list(current_vals.keys())[-1].end < tag.start:
-                    current_vals[tag] = {}
+            if len(current_keys) >= 1:
+                if list(current_keys.keys())[-1].end < tag.start:
+                    current_keys[tag] = {}
                 else:
-                    deepest = find_deepest_value(current_vals)
-                    deepest.update({tag: {}})
+                    current_val = find_deepest_value(current_keys)
+                    current_val.update({tag: {}})
             else:
-                current_vals[tag] = {}
+                current_keys[tag] = {}
                 
-            self.set_limit(tag)
+            if tag.end > self.limit:
+                self.limit = tag.end
+            
+        self.current_index.append(tag)
 
     def parse(self, tokens):      
         for index, token in enumerate(tokens):
@@ -119,7 +141,6 @@ class Parser:
 
             elif token.type == 'EXPRESSION' and 'END' not in token.specs:
                 tag_index = get_closing_expression_index(index, token, tokens)
-                
                 name = token.content[:-2].strip()
                 start, end = token.index, tokens[tag_index].index + len(tokens[tag_index].content)
                 self.add_tag_to_document(Expression(name, start, end))
@@ -144,6 +165,9 @@ class Interpreter:
     def reset_current_string(self):
         self.current_tag = str()
     
+    def set_context(self, context):
+        self.context = context
+    
     def visit_tag(self, tag):
         current_string = tag.opening()
         if tag.content:
@@ -153,28 +177,40 @@ class Interpreter:
         return current_string + tag.closing()
     
     def visit_variable(self, variable):
-        return variable.get_variable_from_context(self.context)
+        var_type = variable.__class__.__name__
+        return RetrieveVarsFromExpression(var_type, variable.name, self.context).manager()
     
     def visit_expression(self, expression):
-        condition = expression.evaluate_expression(self.context)
-        if condition:
+        expression_command, expression_condition = expression.evaluate_expression(self.context)
+        if expression_command == 'if' and expression_condition:
             children = find_specific_key(expression, self.document.tree)
-            self.reset_current_string()
             return self.render(children)
         
+        elif expression_command == 'for' and expression_condition:
+            children = find_specific_key(expression, self.document.tree)
+            looped_var, iterable_var = expression_condition
+            original_context = self.context
+            forloop_content = ''
+            
+            for iterable in iterable_var:
+                self.set_context({looped_var: iterable})
+                self.reset_current_string()
+                forloop_content += self.render(children) 
+                
+            self.set_context(original_context)
+            
+            return forloop_content
+        
         return ''
-    
-    def dispatch_node(self, node):
-        if isinstance(node, Tag):
-            return self.visit_tag(node)
-        elif isinstance(node, Variable):
-            return self.visit_variable(node)
-        elif isinstance(node, Expression):
-            return self.visit_expression(node)
 
     def render(self, tag):
         for parent in tag.keys():
-            self.current_tag += self.dispatch_node(parent)
+            if isinstance(parent, Tag):
+                self.current_tag += self.visit_tag(parent)
+            elif isinstance(parent, Variable):
+                self.current_tag += self.visit_variable(parent)
+            elif isinstance(parent, Expression):
+                self.current_tag += self.visit_expression(parent)
             
             if parent == list(self.document.tree.keys())[-1]:
                 self.document_string += self.current_tag

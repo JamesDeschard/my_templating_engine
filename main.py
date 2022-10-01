@@ -10,8 +10,11 @@ def get_json_data():
 def main():
     template = 'index.html'
     context = {
+        'title': 'forloop',
         'test': {'name': 'James', 'age': 20},
+        'posts': get_json_data(),
         'name': 'James',
+        'age': 20
     }
     return render_to_string(template, context)
 

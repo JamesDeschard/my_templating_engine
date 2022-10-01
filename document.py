@@ -1,8 +1,10 @@
+from asyncore import loop
 import pprint
 import string
+import re
 
 from evaluate import evaluate
-from utils import SELF_CLOSING_TAGS
+from utils import SELF_CLOSING_TAGS, RetrieveVarsFromExpression
 
 
 class Document:
@@ -51,15 +53,12 @@ class Tag:
 
 class Variable:
     def __init__(self, name, start, end) -> None:
-        self.variable_name = name
+        self.name = name
         self.start = start
         self.end = end
     
-    def get_variable_from_context(self, context):
-        return context.get(self.variable_name, '')
-
     def __repr__(self) -> str:
-        return self.variable_name
+        return self.name
     
     
 class Expression:
@@ -72,41 +71,6 @@ class Expression:
     
     def set_context(self, context):
         self.context = context
-    
-    def get_variable_from_context(self, variable, context=None):
-        if context == None:
-            context = self.context
-        return context.get(variable, False)
-    
-    def get_variable_from_expression(self, expression):
-        def get_tokens(tag):
-            allowed_chars = string.ascii_letters +  '.'
-            return not tag.startswith('"') and not tag.endswith('"') and all([l in allowed_chars for l in tag])
-        
-        assumed_vars = list(filter(lambda tag: get_tokens(tag), expression.split()))
-        existing_vars = []
-        
-        for var in assumed_vars:
-            var = var.split('.')
-            if len(var) == 1:
-                existing_vars.append(self.get_variable_from_context(var[0], self.context))
-            else:
-                count = 0
-                context = self.context
-                while count != len(var):
-                    context = self.get_variable_from_context(var[count], context)
-                    count += 1
-                    
-                existing_vars.append(context)
-                
-        return existing_vars
-
-    def check_expression_validity(self, expression, ):
-        self.get_variable_from_expression(expression)
-        # expression = evaluate(expression)
-        # expression = True if expression else False
-        # return expression
-        return ""
         
     def evaluate_expression(self, context):
         self.set_context(context)
@@ -114,9 +78,17 @@ class Expression:
         expression_content = self.expression[len(expression_command):].strip()
 
         if expression_command == 'for':
-            pass
+            split_content = expression_content.split()
+            loop_var, iterable_var = split_content[0], split_content[-1]
+            iterable_var = RetrieveVarsFromExpression(expression_command, iterable_var, self.context).manager()
+            return expression_command, (loop_var, iterable_var)
+        
         elif expression_command == 'if':
-            return self.check_expression_validity(expression_content)
+            expression = RetrieveVarsFromExpression(expression_command, expression_content, self.context).manager()
+            evaluation = evaluate(expression)
+            evaluation = True if evaluation else False
+            return expression_command, evaluation
+        
         else:
             raise ValueError(f"Invalid expression command: {expression_command}")
 

@@ -1,3 +1,4 @@
+from glob import escape
 import logging
 import string
 from logging.config import IDENTIFIER
@@ -23,7 +24,7 @@ factor      :   (PLUS | MINUS) factor
 
 power       :   atom (POW factor)*
 
-atom        :   INT|FLOAT|IDENTIFIER
+atom        :   INT|FLOAT|STRING|IDENTIFIER
             :   LPAREN expr RPAREN
 """
 
@@ -46,6 +47,8 @@ LPAREN = 'LPAREN'
 RPAREN = 'RPAREN'
 INTEGER = 'INTEGER'
 POWER = 'POWER'
+
+STRING = 'STRING'
 
 DOUBLE_EQUALS = 'DOUBLE_EQUALS'
 NOT_EQUALS = 'NOT_EQUALS'
@@ -73,6 +76,13 @@ LETTERS_DIGITS = LETTERS + DIGITS
 
 
 ### NODES ###
+
+class StringNode:
+    def __init__(self, token):
+        self.token = token
+
+    def __repr__(self):
+        return str(self.token.value)
 
 class NumberNode:
     def __init__(self, token):
@@ -149,10 +159,14 @@ class Lexer:
         while self.current_char is not None:
             if self.current_char in DIGITS:
                 self.tokens.append(self.make_number())
+            elif self.current_char == '"':
+                self.tokens.append(self.make_string())
             elif self.current_char in LETTERS:
                 self.tokens.append(self.make_identifier())
             elif self.current_char == ' ':
                 self.advance()
+            elif self.current_char == '"':
+                self.tokens.append(self.make_string())
             elif self.current_char == '+':
                 self.tokens.append(Token(self.current_char, PLUS))
                 self.advance()
@@ -187,6 +201,30 @@ class Lexer:
             
         return self.tokens
 
+    def make_string(self):
+        string = ''
+        escape_character = False
+        self.advance()
+
+        escape_characters = {
+            'n': '\n',
+            't': '\t'
+        }
+
+        while self.current_char != None and (self.current_char != '"' or escape_character):
+            if escape_character:
+                string += escape_characters.get(self.current_char, self.current_char)
+            else:
+                if self.current_char == '\\':
+                    escape_character = True
+                else:
+                    string += self.current_char
+            self.advance()
+            escape_character = False
+
+        self.advance()
+        return Token(string, STRING)
+    
     def make_less_than(self):
         token_type = LESS_THAN
         self.advance()
@@ -265,6 +303,10 @@ class Parser:
         if token.type in (INTEGER, FLOAT):
             self.advance()
             return NumberNode(token)
+        
+        if token.type == STRING:
+            self.advance()
+            return StringNode(token)
         
         elif token.type == IDENTIFIER:
             self.advance()
@@ -415,6 +457,33 @@ class Number:
     
     def __repr__(self) -> str:
         return str(self.value)
+    
+    
+class String:
+    def __init__(self, value):
+        self.value = value
+        
+    def set_context(self, context=None):
+        self.context = context
+        return self
+        
+    def added_to(self, other):
+        if isinstance(other, String):
+            return String(self.value + other.value).set_context(self.context)
+
+    def multed_by(self, other):
+        if isinstance(other, Number):
+            return String(self.value * other.value).set_context(self.context)
+    
+    def get_comparison_eq(self, other):
+        return Number(self.value == other.value).set_context(self.context)
+
+    def get_comparison_ne(self, other):
+        return Number(self.value != other.value).set_context(self.context)
+
+
+    def __repr__(self):
+        return f'"{self.value}"'
 
 
 class Context:
@@ -456,8 +525,13 @@ class Interpreter:
             return self.visit_VarAssignNode(node, context)
         elif name == 'VarAccessNode':
             return self.visit_VarAccessNode(node, context)
+        elif name == 'StringNode':
+            return self.visit_StringNode(node, context)
         else:
             raise Exception(f'Unknown node: {name}')
+    
+    def visit_StringNode(self, node, context):
+        return String(node.token.value).set_context(context)
     
     def visit_VarAccessNode(self, node, context):
         var_name = node.var_name_token.value
@@ -533,9 +607,15 @@ def evaluate(expression):
 
     parser = Parser(result)
     result = parser.parse()
-
+    
     interpreter = Interpreter()
     context = Context('<program>')
     context.symbol_table = global_symbol_table
     result = interpreter.visit(result, context)
     return result.value
+
+if __name__ == '__main__':
+    while True:
+        text = input('>> ')
+        result = evaluate(text)
+        print(result)

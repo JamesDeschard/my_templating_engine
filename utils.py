@@ -1,7 +1,12 @@
+import copy
+from operator import ne
 import re
+import parser
+import string
+
 
 ### CONSTANTS ###
-
+OPERATORS = ['+', '-', '*', '/', '==', '!=', '>', '<', '>=', '<=', 'and', 'or', 'not']
 SELF_CLOSING_TAGS = ['DOCTYPE','area', 'base', 'br', 'col', 'embed', 'hr', 'img','input', 'link', 'meta', 'param', 'source', 'track', 'wbr']
 
 
@@ -102,32 +107,81 @@ def get_closing_tag_index(start_index, tag_name, tokens):
     return count
 
 
-### CLASSES ###
-
-
-class Token:
-    def __init__(self, type, content, index):
-        self.type = type
-        self.content = content
-        self.index = index
-        self.specs = self.get_specs()
-    
-    def get_specs(self):
-        if 'endfor' in self.content:
-            return 'ENDFOR'
-        elif 'for' in self.content:
-            return 'FOR'
-        elif 'endif' in self.content:
-            return 'ENDIF'
-        elif 'if' in self.content:
-            return 'IF'
+class RetrieveVarsFromExpression:
+    def __init__(self, expression_type, expression, context) -> None:
+        self.expression_type = expression_type
+        self.expression = expression
+        self.context = context
+        self.existing_vars = []
         
-        if self.type == 'TAG':
-            return self.content
-        
-        if self.type == 'VARIABLE':
-            return self.content
+        self.assumed_vars = expression.split()
 
-    def __repr__(self) -> str:
-        return f'{self.type}:{self.specs}:{self.index}'
+    def manager(self):
+        if self.expression_type == 'for':
+            existing_variables = list(map(self.retrieve, self.assumed_vars))[0]
+            return existing_variables
+        
+        elif self.expression_type == 'if':
+            existing_variables = map(self.retrieve, self.assumed_vars)
+            existing_variables = filter(lambda x: x != None, existing_variables)
+            new_expression = self.build_expression_for_evaluation(existing_variables)
+            return new_expression
+        
+        else:
+            return list(map(self.retrieve, self.assumed_vars))[0]
     
+    def build_expression_for_evaluation(self, existing_variables):
+        expression_terms = self.expression.split()
+        operator_indexes = [expression_terms.index(x) for x in expression_terms if x in OPERATORS]
+
+        fill_operator_indexes = []
+        for index, var_name in enumerate(existing_variables):
+            if not self.is_string(var_name) and not self.is_mathematical_expression(var_name):
+                var_name = f'"{var_name}"'
+            if index in operator_indexes:
+                fill_operator_indexes.append('')
+                
+            fill_operator_indexes.append(var_name)
+    
+        var_names_and_operators = zip(expression_terms, fill_operator_indexes)
+        new_expression = map(lambda x: x[1] if x[1] != '' else x[0], var_names_and_operators)
+        new_expression = ' '.join(new_expression)
+        return new_expression    
+
+    def get_variable_from_context(self, variable, context):
+        variable = context.get(variable, False)
+        
+        if type(variable) == int:
+            variable = str(variable) 
+        
+        return variable
+    
+    def is_mathematical_expression(self, var):
+        return all([v in ['+','-','*','^','.'] or v.isdigit() for v in var])
+    
+    def is_string(self, var):
+        return all([var.startswith('"'), var.endswith('"')])
+    
+    def retrieve(self, var):
+        if self.is_string(var):
+            return var
+        elif self.is_mathematical_expression(var):
+            return var
+        elif var in OPERATORS:
+            return None
+
+        current_var = var.split('.')
+                
+        if len(current_var) == 1:
+            variable = self.get_variable_from_context(current_var[0], self.context)
+            return variable
+
+        else:
+            count = 0
+            variable = copy.deepcopy(self.context)
+            while count != len(current_var):
+                variable = self.get_variable_from_context(current_var[count], variable)
+                count += 1
+                
+        return variable
+        
