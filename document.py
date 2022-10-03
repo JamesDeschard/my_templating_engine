@@ -7,7 +7,7 @@ from utils import SELF_CLOSING_TAGS, RetrieveVarsFromExpression, get_template
 class Document:
     def __init__(self) -> None:
         self.tree = dict()
-        self.extends_another_file = None
+        self.extends_another_file = []
         self.blocks = {}
                 
     def build_document(self, children=None):

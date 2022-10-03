@@ -1,5 +1,5 @@
-from concurrent.futures.process import _ResultItem
-import re
+import copy
+import os
 
 from document import (Document, Expression, RetrieveVarsFromExpression, Tag,
                       Variable)
@@ -131,50 +131,50 @@ class Parser:
         self.tokens = tokens
         self.tag_list = []
         
-        self.current_index = []
+        self.current_sibling = []
         self.document = Document()
         self.limit = 0
         
     def set_limit(self, tag):
-        self.limit = tag.end
+        if tag.end > self.limit:
+            self.limit = tag.end
     
     def add_new_child(self, parent, child):
         parent[child] = {} 
         
     def add_tag_to_document(self, tag):
-        if not self.current_index:
+        if not self.current_sibling:
             # Add first tag to document
             self.add_new_child(self.document.tree, tag)
                 
-        elif tag.start > self.current_index[-1].end:    
+        elif tag.start > self.current_sibling[-1].end:    
             # Tag is not a child of the current index                                    
-            count = len([i for i in self.current_index if tag.start > i.end])
-            self.current_index = self.current_index[:-count]
+            count = len([i for i in self.current_sibling if tag.start > i.end])
+            self.current_sibling = self.current_sibling[:-count]
            
-            if not self.current_index:
+            if not self.current_sibling:
                 self.document.tree.update({tag: {}})
                 
             else:
-                parent = find_specific_key(self.current_index[-1], self.document.tree)
+                parent = find_specific_key(self.current_sibling[-1], self.document.tree)
                 self.add_new_child(parent, tag)                  
             
-        elif tag.start > self.current_index[-1].start: 
+        elif tag.start > self.current_sibling[-1].start: 
             # Tag is a child of the current index                        
-            parents = find_specific_key(self.current_index[-1], self.document.tree)
+            parents = find_specific_key(self.current_sibling[-1], self.document.tree)
             
             if len(parents) >= 1:
                 if list(parents.keys())[-1].end < tag.start:
                     self.add_new_child(parents, tag) 
                 else:
-                    current_val = find_deepest_value(parents)
-                    current_val.update({tag: {}})
+                    parent = find_deepest_value(parents)
+                    parent.update({tag: {}})
             else:
                 self.add_new_child(parents, tag)
                 
-            if tag.end > self.limit:
-                self.set_limit(tag)
+            self.set_limit(tag)
             
-        self.current_index.append(tag)
+        self.current_sibling.append(tag)
 
     def parse(self, tokens):      
         for index, token in enumerate(tokens):
@@ -204,8 +204,12 @@ class Parser:
             
             elif token.specs == EXTENDS:
                 extends = token.content.split()[-1]
-                self.document.extends_another_file = extends
-                   
+                extends = extends.replace('"', '').replace("'", '')
+                if extends not in os.listdir('templates'):
+                    raise Exception(f'"{extends}" does not exist in templates folder')
+                self.document.extends_another_file = extends        
+                
+                
             else:
                 continue
             
@@ -236,12 +240,9 @@ class Interpreter:
             self.reset_current_string()
             current_string += self.render(tag.content)
         
-        current_depth = self.depth.get(tag)
-        
-        return current_string + add_tabulation_and_line_breaks(
-            tag.closing(), 
-            tabulation=current_depth - 1
-        )
+        tabulation = add_tabulation_and_line_breaks(tag.closing(), self.depth.get(tag) - 1) 
+        current_string += tabulation
+        return current_string 
     
     def visit_variable(self, variable):
         var_type = variable.__class__.__name__
@@ -257,8 +258,8 @@ class Interpreter:
         
         elif expression_command == 'for' and expression_condition:
             looped_var, iterable_var = expression_condition
-            original_context = self.context
             
+            original_context = self.context
             forloop_content = ''
             
             for iterable in iterable_var:
@@ -271,19 +272,24 @@ class Interpreter:
         
         elif expression_command == 'block':
             content = self.render(children)
+            content = (expression_condition, content)
             if self.document.extends_another_file:
-                self.document.blocks[expression_condition] = content
-                print(self.document.assemble_strings())
+                self.document.blocks[self.document.extends_another_file] = content
+                document = copy.copy(self.document.blocks)
                 
+                for template in document.keys():
+                    document = ReadDocument().build(template, self.context)
+                    result = document.document.blocks
+                    self.document.blocks.update(result)
+                              
         return ''
 
     def render(self, tag):
         for parent in tag.keys():
             if isinstance(parent, Tag):
-                self.current_tag += add_tabulation_and_line_breaks(
-                    self.visit_tag(parent), 
-                    tabulation=self.depth.get(parent) - 1
-                )
+                content = self.visit_tag(parent)
+                tabulation = self.depth.get(parent) - 1
+                self.current_tag += add_tabulation_and_line_breaks(content, tabulation)
             elif isinstance(parent, Variable):
                 self.current_tag += self.visit_variable(parent)
             elif isinstance(parent, Expression):
@@ -291,24 +297,34 @@ class Interpreter:
             
             if parent == list(self.document.tree.keys())[-1]:
                 self.document_string += self.current_tag
+                
             
         return self.current_tag
 
 
-# def final_render(template):
-#     result = Lexer(template).tokenize()
-#     result = Parser(result).parse(result)
-#     result = Interpreter(result, context={})
-#     return result.document_string
-        
-def render_to_string(template, context):
-    template = get_template(template)
-    if not template:
-        raise Exception('Template does not exist')
+class ReadDocument:
+         
+    def get_template(self, template):
+        template = get_template(template)
+        if not template:
+            raise Exception('Template does not exist')
+        return template
     
-    result = Lexer(template).tokenize()
-    result = Parser(result).parse(result)
-    result = Interpreter(result, context)
-    print(result.document.blocks)
-    return result.document_string
+    def build(self, template, context):
+        template = self.get_template(template)
+        result = Lexer(template).tokenize()
+        result = Parser(result).parse(result)
+        result = Interpreter(result, context)
+        return result
+    
+    def build_blocks(self, blocks):
+        for template, (block_name, block_content) in blocks.items():
+            pass
+
+
+def render_to_string(template, context):
+    reader = ReadDocument()
+    document = reader.build(template, context)
+    reader.build_blocks(document.document.blocks)
+    return document
      
