@@ -1,3 +1,5 @@
+import os
+import codecs
 import copy
 import re
 import os
@@ -13,6 +15,18 @@ SELF_CLOSING_TAGS = ['DOCTYPE','area', 'base', 'br', 'col', 'embed', 'hr', 'img'
 
 
 ### FUNCTIONS ###
+
+def get_template(template):
+    """
+    Returns the template as a string.
+    Template must be in the "templates" directory.
+    """
+    templates = os.listdir('templates')
+    if template in templates:
+        template_path = os.path.join(BASE_DIR, 'templates', template)
+        return codecs.open(template_path, 'r', 'utf-8').read()
+    
+    else: return False
 
 def add_tabulation_and_line_breaks(_string, tabulation=0):
     """
@@ -82,19 +96,41 @@ def get_html_attributes(token):
     return re.findall(r"""(\w+)=["']?((?:.(?!["']?\s+(?:\S+)=|\s*\/?[>"']))+.)["']?""", token.content)
 
 
-def get_closing_expression_index(start_index, token, tokens):
+def get_closing_expression_index(start_index, token, tokens, tag_name=None):
     """
     Get the closing expression index.
     """
     count, new_expression = start_index + 1, 0
-                    
-    while not all([tokens[count].specs == 'END%s' % token.specs, new_expression <= 0]):
-        if tokens[count].specs in ['FOR', 'IF']:
-            new_expression += 1
-        elif 'END' in tokens[count].specs:
-            new_expression -= 1
-        count += 1
-        
+    
+    if token.specs == 'FOR':
+        while not all([tokens[count].specs == 'ENDFOR', new_expression <= 0]):
+            if tokens[count].specs == 'FOR':
+                new_expression += 1
+            elif tokens[count].specs == 'ENDFOR':
+                new_expression -= 1
+                
+            count += 1
+    
+    elif token.specs == 'IF':
+        while not all([tokens[count].specs == 'ENDIF', new_expression <= 0]):
+            if tokens[count].specs == 'ELIF' or tokens[count].specs == 'ELSE':
+                return count - 1
+            if tokens[count].specs == 'IF':
+                new_expression += 1
+            elif tokens[count].specs == 'ENDIF':
+                new_expression -= 1
+                
+            count += 1
+    
+    elif token.specs == 'BLOCK':
+        while not all([tokens[count].specs == 'ENDBLOCK', new_expression <= 0]):
+            if tokens[count].specs == 'BLOCK':
+                new_expression += 1
+            elif tokens[count].specs == 'ENDBLOCK':
+                new_expression -= 1
+                
+            count += 1
+    
     return count
 
 def get_closing_tag_index(start_index, tag_name, tokens):   
@@ -105,12 +141,13 @@ def get_closing_tag_index(start_index, tag_name, tokens):
         return False
     
     count, new_tag = start_index + 1, 0
-    
+
     while not all([tokens[count].specs == '</%s>' % tag_name, new_tag <= 0]):
         if '<%s' % tag_name in tokens[count].specs:
             new_tag += 1
         elif '</%s' % tag_name in tokens[count].specs:
             new_tag -= 1
+            
         count += 1
 
     return count
@@ -138,7 +175,7 @@ class RetrieveVarsFromExpression:
             existing_variables = list(map(self.retrieve, self.assumed_vars))[0]
             return existing_variables
         
-        elif self.expression_type == 'if':
+        elif self.expression_type == 'if' or 'elif':
             existing_variables = map(self.retrieve, self.assumed_vars)
             existing_variables = filter(lambda x: x != None, existing_variables)
             new_expression = self.build_expression_for_evaluation(existing_variables)

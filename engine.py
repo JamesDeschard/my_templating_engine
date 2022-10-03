@@ -1,16 +1,17 @@
-import codecs
-import os
+from concurrent.futures.process import _ResultItem
+import re
 
 from document import (Document, Expression, RetrieveVarsFromExpression, Tag,
                       Variable)
-from utils import (BASE_DIR, add_tabulation_and_line_breaks, depth,
-                   find_deepest_value, find_specific_key,
-                   get_closing_expression_index, get_closing_tag_index,
-                   get_html_attributes, get_html_tag_name)
+from utils import (add_tabulation_and_line_breaks, depth, find_deepest_value,
+                   find_specific_key, get_closing_expression_index,
+                   get_closing_tag_index, get_html_attributes,
+                   get_html_tag_name, get_template)
 
 EXPRESSION = 'EXPRESSION'
 VARIABLE = 'VARIABLE'
 TAG = 'TAG'
+EXTENDS = 'EXTENDS'
 
 
 class Token:
@@ -27,8 +28,18 @@ class Token:
             return 'FOR'
         elif 'endif' in self.content:
             return 'ENDIF'
+        elif 'elif' in self.content:
+            return 'ELIF'
         elif 'if' in self.content:
             return 'IF'
+        elif 'else' in self.content:
+            return 'ELSE'
+        elif 'endblock' in self.content:
+            return 'ENDBLOCK'
+        elif 'block' in self.content:
+            return 'BLOCK'
+        elif 'extends' in self.content:
+            return 'EXTENDS'
         
         if self.type == 'TAG':
             return self.content
@@ -74,10 +85,8 @@ class Lexer:
             while self.current_char + self.template[self._index + 1] != '%}':
                 content += self.current_char
                 self.advance()
-            
-            self.advance()
-            if self.current_char == '}':
-                self.tokens.append(Token(EXPRESSION, content, start_index))
+                
+            self.tokens.append(Token(EXPRESSION, content, start_index))
             
         elif self.current_char == '{':
             self.make_variable()
@@ -88,7 +97,7 @@ class Lexer:
         while self.current_char + self.template[self._index + 1] != '}}':
             content += self.current_char
             self.advance()
-            
+              
         self.tokens.append(Token(VARIABLE, content, start_index))
     
     def make_tag(self):
@@ -134,9 +143,11 @@ class Parser:
         
     def add_tag_to_document(self, tag):
         if not self.current_index:
+            # Add first tag to document
             self.add_new_child(self.document.tree, tag)
                 
-        elif tag.start > self.current_index[-1].end:                            
+        elif tag.start > self.current_index[-1].end:    
+            # Tag is not a child of the current index                                    
             count = len([i for i in self.current_index if tag.start > i.end])
             self.current_index = self.current_index[:-count]
            
@@ -147,7 +158,8 @@ class Parser:
                 parent = find_specific_key(self.current_index[-1], self.document.tree)
                 self.add_new_child(parent, tag)                  
             
-        elif tag.start > self.current_index[-1].start:                          
+        elif tag.start > self.current_index[-1].start: 
+            # Tag is a child of the current index                        
             parents = find_specific_key(self.current_index[-1], self.document.tree)
             
             if len(parents) >= 1:
@@ -184,15 +196,19 @@ class Parser:
                 start, end = token.index, token.index + len(token.content)
                 self.add_tag_to_document(Variable(name, start, end))
 
-            elif token.type == EXPRESSION and 'END' not in token.specs:
+            elif token.type == EXPRESSION and 'END' not in token.specs:                    
                 tag_index = get_closing_expression_index(index, token, tokens)
                 name = token.content.strip()
                 start, end = token.index, tokens[tag_index].index + len(tokens[tag_index].content)
                 self.add_tag_to_document(Expression(name, start, end))
             
+            elif token.specs == EXTENDS:
+                extends = token.content.split()[-1]
+                self.document.extends_another_file = extends
+                   
             else:
                 continue
-        
+            
         return self.document
 
 
@@ -233,12 +249,13 @@ class Interpreter:
     
     def visit_expression(self, expression):
         expression_command, expression_condition = expression.evaluate_expression(self.context)
-        if expression_command == 'if' and expression_condition:
-            children = find_specific_key(expression, self.document.tree)
+        children = find_specific_key(expression, self.document.tree)
+        self.reset_current_string()
+        
+        if expression_command in ['if', 'elif', 'else'] and expression_condition:
             return self.render(children)
         
         elif expression_command == 'for' and expression_condition:
-            children = find_specific_key(expression, self.document.tree)
             looped_var, iterable_var = expression_condition
             original_context = self.context
             
@@ -250,9 +267,14 @@ class Interpreter:
                 forloop_content += self.render(children) 
                 
             self.set_context(original_context)
-            
             return forloop_content
         
+        elif expression_command == 'block':
+            content = self.render(children)
+            if self.document.extends_another_file:
+                self.document.blocks[expression_condition] = content
+                print(self.document.assemble_strings())
+                
         return ''
 
     def render(self, tag):
@@ -273,14 +295,11 @@ class Interpreter:
         return self.current_tag
 
 
-def get_template(template):
-    templates = os.listdir('templates')
-    if template in templates:
-        template_path = os.path.join(BASE_DIR, 'templates', template)
-        return codecs.open(template_path, 'r', 'utf-8').read()
-    
-    else: return False
-        
+# def final_render(template):
+#     result = Lexer(template).tokenize()
+#     result = Parser(result).parse(result)
+#     result = Interpreter(result, context={})
+#     return result.document_string
         
 def render_to_string(template, context):
     template = get_template(template)
@@ -290,9 +309,6 @@ def render_to_string(template, context):
     result = Lexer(template).tokenize()
     result = Parser(result).parse(result)
     result = Interpreter(result, context)
-    print(result.document_string)
-
-    return result
-
-
-                
+    print(result.document.blocks)
+    return result.document_string
+     
