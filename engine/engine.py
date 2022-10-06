@@ -248,8 +248,8 @@ class Interpreter:
         expression_command, expression_condition = expression.evaluate_expression(self.context)
 
         if expression_command in ['if', 'elif', 'else'] and expression_condition:
-            print(expression_command, expression_condition)
             children = find_specific_key(expression, self.document.tree)
+            self.reset_current_string()
             return self.render(children)
         
         elif expression_command == 'for' and expression_condition:
