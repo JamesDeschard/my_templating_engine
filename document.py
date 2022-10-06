@@ -61,6 +61,11 @@ class Variable:
         return self.name
     
     
+# IS_BLOCK keeps track of the current if/elif/else statement and its status
+# If a new 'if' statement is found, the variable is reset
+
+IS_BLOCK = {}   
+    
 class Expression:
     def __init__(self, expression, start, end) -> None:
         self.expression = expression
@@ -68,6 +73,13 @@ class Expression:
         self.end = end
         
         self.context = None
+    
+    def set_is_block(self, condition, value):
+        global IS_BLOCK
+        if condition == 'if' and condition in IS_BLOCK:
+            IS_BLOCK = {}
+            
+        IS_BLOCK[condition] = value
     
     def set_context(self, context):
         self.context = context
@@ -86,11 +98,18 @@ class Expression:
             iterable_var = RetrieveVarsFromExpression(expression_command, iterable_var, self.context).manager()
             return expression_command, (loop_var, iterable_var)
         
-        elif expression_command == 'if':
+        elif expression_command in ['if', 'elif']:                
             expression = RetrieveVarsFromExpression(expression_command, expression_content, self.context).manager()
             evaluation = evaluate(expression)
+            self.set_is_block(expression_command, evaluation)
             evaluation = True if evaluation else False
+            
             return expression_command, evaluation
+        
+        elif expression_command == 'else':
+            if all(filter(lambda x: not x, IS_BLOCK)):
+                return expression_command, True
+            return expression_command, False
             
         else:
             raise ValueError(f"Invalid expression command: {expression_command}")

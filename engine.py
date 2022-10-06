@@ -1,4 +1,5 @@
 import codecs
+from msilib.schema import Error
 import os
 
 from document import (Document, Expression, RetrieveVarsFromExpression, Tag,
@@ -8,9 +9,11 @@ from utils import (BASE_DIR, add_tabulation_and_line_breaks, depth,
                    get_closing_expression_index, get_closing_tag_index,
                    get_html_attributes, get_html_tag_name)
 
+
 EXPRESSION = 'EXPRESSION'
 VARIABLE = 'VARIABLE'
 TAG = 'TAG'
+EXTENDS = 'EXTENDS'
 
 
 class Token:
@@ -27,8 +30,18 @@ class Token:
             return 'FOR'
         elif 'endif' in self.content:
             return 'ENDIF'
+        elif 'elif' in self.content:
+            return 'ELIF'
         elif 'if' in self.content:
             return 'IF'
+        elif 'else' in self.content:
+            return 'ELSE'
+        elif 'endblock' in self.content:
+            return 'ENDBLOCK'
+        elif 'block' in self.content:
+            return 'BLOCK'
+        elif 'extends' in self.content:
+            return 'EXTENDS'
         
         if self.type == 'TAG':
             return self.content
@@ -43,7 +56,7 @@ class Token:
 class Lexer:    
     """
     Time complexity: O(n)
-    One iteration over the self.template variable.
+    One iteration over the template.
     """
     def __init__(self, template) -> None:
         self.template = template
@@ -74,10 +87,8 @@ class Lexer:
             while self.current_char + self.template[self._index + 1] != '%}':
                 content += self.current_char
                 self.advance()
-            
-            self.advance()
-            if self.current_char == '}':
-                self.tokens.append(Token(EXPRESSION, content, start_index))
+                
+            self.tokens.append(Token(EXPRESSION, content, start_index))
             
         elif self.current_char == '{':
             self.make_variable()
@@ -88,7 +99,7 @@ class Lexer:
         while self.current_char + self.template[self._index + 1] != '}}':
             content += self.current_char
             self.advance()
-            
+              
         self.tokens.append(Token(VARIABLE, content, start_index))
     
     def make_tag(self):
@@ -112,17 +123,19 @@ class Lexer:
         
         return self.tokens
     
-    
 class Parser:
     """
-    Time complexity: O(n) ??? nlogn?
-    
+    Time complexity: O(n²)
+    Need to optimize this.
+    Can bring down to O(nlogn) by using a while loop
+    and advancing the while loop by the length of the
+    get_index of the closing tag.
     """
     def __init__(self, tokens) -> None:
         self.tokens = tokens
         self.tag_list = []
         
-        self.current_index = []
+        self.current_sibling = []
         self.document = Document()
         self.limit = 0
         
@@ -133,36 +146,38 @@ class Parser:
         parent[child] = {} 
         
     def add_tag_to_document(self, tag):
-        if not self.current_index:
+        if not self.current_sibling:
+            # Add first tag to document
             self.add_new_child(self.document.tree, tag)
                 
-        elif tag.start > self.current_index[-1].end:                            
-            count = len([i for i in self.current_index if tag.start > i.end])
-            self.current_index = self.current_index[:-count]
+        elif tag.start > self.current_sibling[-1].end:    
+            # Tag is not a child of the current index                                    
+            count = len([i for i in self.current_sibling if tag.start > i.end])
+            self.current_sibling = self.current_sibling[:-count]
            
-            if not self.current_index:
+            if not self.current_sibling:
                 self.document.tree.update({tag: {}})
                 
             else:
-                parent = find_specific_key(self.current_index[-1], self.document.tree)
+                parent = find_specific_key(self.current_sibling[-1], self.document.tree)
                 self.add_new_child(parent, tag)                  
             
-        elif tag.start > self.current_index[-1].start:                          
-            parents = find_specific_key(self.current_index[-1], self.document.tree)
+        elif tag.start > self.current_sibling[-1].start: 
+            # Tag is a child of the current index                        
+            parents = find_specific_key(self.current_sibling[-1], self.document.tree)
             
             if len(parents) >= 1:
                 if list(parents.keys())[-1].end < tag.start:
                     self.add_new_child(parents, tag) 
                 else:
-                    current_val = find_deepest_value(parents)
-                    current_val.update({tag: {}})
+                    parent = find_deepest_value(parents)
+                    parent.update({tag: {}})
             else:
                 self.add_new_child(parents, tag)
                 
-            if tag.end > self.limit:
-                self.set_limit(tag)
+            self.set_limit(tag)
             
-        self.current_index.append(tag)
+        self.current_sibling.append(tag)
 
     def parse(self, tokens):      
         for index, token in enumerate(tokens):
@@ -221,7 +236,6 @@ class Interpreter:
             current_string += self.render(tag.content)
         
         current_depth = self.depth.get(tag)
-        
         return current_string + add_tabulation_and_line_breaks(
             tag.closing(), 
             tabulation=current_depth - 1
@@ -233,7 +247,7 @@ class Interpreter:
     
     def visit_expression(self, expression):
         expression_command, expression_condition = expression.evaluate_expression(self.context)
-        if expression_command == 'if' and expression_condition:
+        if expression_command in ['if', 'elif', 'else'] and expression_condition:
             children = find_specific_key(expression, self.document.tree)
             return self.render(children)
         
@@ -268,7 +282,7 @@ class Interpreter:
                 self.current_tag += self.visit_expression(parent)
             
             if parent == list(self.document.tree.keys())[-1]:
-                self.document_string += self.current_tag
+                self.document_string += self.current_tag.strip()
             
         return self.current_tag
 
@@ -279,7 +293,7 @@ def get_template(template):
         template_path = os.path.join(BASE_DIR, 'templates', template)
         return codecs.open(template_path, 'r', 'utf-8').read()
     
-    else: return False
+    raise Exception(f'Template {template} does not exist...')
         
         
 def render_to_string(template, context):
@@ -293,6 +307,3 @@ def render_to_string(template, context):
     print(result.document_string)
 
     return result
-
-
-                

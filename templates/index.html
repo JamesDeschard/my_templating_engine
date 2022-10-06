@@ -7,11 +7,24 @@
         <title>Document</title>
     </head>
     <body>
-        {% if 6*6 == 36 %}
+        {% if 6*6 == 3 %}
 
-        <h1>{{name}}</h1>
+        <h1>{{test.name}}</h1>
+
+        {% elif 5*5 == 2%}
+
+        <h1>{{test.age}}</h1>
+
+        {% else %}
+
+        <h1>{{test.surname}}</h1>
 
         {% endif %}
+
+        {% for post in posts%}
+        <h2>{{post.title}}</h2>
+        <p>{{post.body}}</p>
+        {% endfor %}
 
     </body>
 </html>

@@ -11,7 +11,7 @@ def main():
     template = 'index.html'
     context = {
         'title': 'forloop',
-        'test': {'name': 'James', 'age': 20},
+        'test': {'name': 'James', 'age': 20, 'surname': 'Bond'},
         'posts': get_json_data(),
         'name': 'James',
         'age': 20

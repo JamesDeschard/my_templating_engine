@@ -82,19 +82,41 @@ def get_html_attributes(token):
     return re.findall(r"""(\w+)=["']?((?:.(?!["']?\s+(?:\S+)=|\s*\/?[>"']))+.)["']?""", token.content)
 
 
-def get_closing_expression_index(start_index, token, tokens):
+def get_closing_expression_index(start_index, token, tokens, tag_name=None):
     """
     Get the closing expression index.
     """
     count, new_expression = start_index + 1, 0
-                    
-    while not all([tokens[count].specs == 'END%s' % token.specs, new_expression <= 0]):
-        if tokens[count].specs in ['FOR', 'IF']:
-            new_expression += 1
-        elif 'END' in tokens[count].specs:
-            new_expression -= 1
-        count += 1
-        
+    
+    if token.specs == 'FOR':
+        while not all([tokens[count].specs == 'ENDFOR', new_expression <= 0]):
+            if tokens[count].specs == 'FOR':
+                new_expression += 1
+            elif tokens[count].specs == 'ENDFOR':
+                new_expression -= 1
+                
+            count += 1
+    
+    elif token.specs == 'IF':
+        while not all([tokens[count].specs == 'ENDIF', new_expression <= 0]):
+            if tokens[count].specs == 'ELIF' or tokens[count].specs == 'ELSE':
+                return count - 1
+            if tokens[count].specs == 'IF':
+                new_expression += 1
+            elif tokens[count].specs == 'ENDIF':
+                new_expression -= 1
+                
+            count += 1
+    
+    elif token.specs == 'BLOCK':
+        while not all([tokens[count].specs == 'ENDBLOCK', new_expression <= 0]):
+            if tokens[count].specs == 'BLOCK':
+                new_expression += 1
+            elif tokens[count].specs == 'ENDBLOCK':
+                new_expression -= 1
+                
+            count += 1
+    
     return count
 
 def get_closing_tag_index(start_index, tag_name, tokens):   
@@ -138,7 +160,7 @@ class RetrieveVarsFromExpression:
             existing_variables = list(map(self.retrieve, self.assumed_vars))[0]
             return existing_variables
         
-        elif self.expression_type == 'if':
+        elif self.expression_type in ['if', 'elif']:
             existing_variables = map(self.retrieve, self.assumed_vars)
             existing_variables = filter(lambda x: x != None, existing_variables)
             new_expression = self.build_expression_for_evaluation(existing_variables)
