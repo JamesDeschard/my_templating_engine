@@ -1,14 +1,13 @@
 import codecs
-from msilib.schema import Error
 import os
+from pathlib import Path
 
-from document import (Document, Expression, RetrieveVarsFromExpression, Tag,
-                      Variable)
-from utils import (BASE_DIR, add_tabulation_and_line_breaks, depth,
-                   find_deepest_value, find_specific_key,
-                   get_closing_expression_index, get_closing_tag_index,
-                   get_html_attributes, get_html_tag_name)
-
+from .document import (Document, Expression, RetrieveVarsFromExpression, Tag,
+                       Variable)
+from .utils import (BASE_DIR, add_tabulation_and_line_breaks, depth,
+                    find_deepest_value, find_specific_key,
+                    get_closing_expression_index, get_closing_tag_index,
+                    get_html_attributes, get_html_tag_name)
 
 EXPRESSION = 'EXPRESSION'
 VARIABLE = 'VARIABLE'
@@ -247,7 +246,9 @@ class Interpreter:
     
     def visit_expression(self, expression):
         expression_command, expression_condition = expression.evaluate_expression(self.context)
+
         if expression_command in ['if', 'elif', 'else'] and expression_condition:
+            print(expression_command, expression_condition)
             children = find_specific_key(expression, self.document.tree)
             return self.render(children)
         
@@ -288,9 +289,11 @@ class Interpreter:
 
 
 def get_template(template):
-    templates = os.listdir('templates')
+    base = Path(BASE_DIR).parent
+    templates = os.path.join(base, 'templates')
+    templates = os.listdir(templates)
     if template in templates:
-        template_path = os.path.join(BASE_DIR, 'templates', template)
+        template_path = os.path.join(base, 'templates', template)
         return codecs.open(template_path, 'r', 'utf-8').read()
     
     raise Exception(f'Template {template} does not exist...')

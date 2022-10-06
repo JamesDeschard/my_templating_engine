@@ -3,8 +3,8 @@ import pprint
 import string
 import re
 
-from evaluate import evaluate
-from utils import SELF_CLOSING_TAGS, RetrieveVarsFromExpression
+from .evaluate import evaluate
+from .utils import SELF_CLOSING_TAGS, RetrieveVarsFromExpression
 
 
 class Document:

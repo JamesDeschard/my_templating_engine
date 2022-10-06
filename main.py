@@ -1,6 +1,6 @@
 import json
 
-from engine import render_to_string
+from engine.engine import render_to_string
 
 
 def get_json_data():
