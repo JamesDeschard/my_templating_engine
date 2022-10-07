@@ -27,7 +27,7 @@ An interpreter is a computer program that is used to directly execute program in
 
 - *The evaluate.py Interpreter*: The final stage of the process. The parsed expression is computed and turned into the wanted output. In our example the interpreter will return `12`.
 
-- *The engine.py Interpreter*: With the engine, the job of the interpreter is to recursively traverse the nested dictionary and populate it with the various content of the HTML tags. Our result value for our previous example will therefore be `<h1>James</h1>` (assuming our variable matches to the string "James", more on that later).
+- *The engine.py Interpreter*: Here the job of the interpreter is to recursively traverse the nested dictionary and populate it with the various content of the HTML tags. Our result value for our previous example will therefore be `<h1>James</h1>` (assuming our variable matches to the string "James", more on that later).
 
 ## How does it work? Practically:
 
