@@ -8,24 +8,24 @@ This project has two main components, a small programming language (the evaluate
 
 The lexer just turns a meaningless string into a flat list of things like "number literal", "string literal", "identifier", or "operator", and can do things like recognizing reserved identifiers ("keywords") and discarding whitespace.
 
-- The evaluate.py Lexer: Same logic here put the tokens represents HTML tags, variables of expressions. For example ``<meta>`` is a tag but ``{{ name }}`` is a variable. For example let's take the expression: `(2*5) + 2`. Once it has been "tokenized", it will look like this: `[LPAREN, INTEGER:2, MUL, INTEGER:5, RPAREN, PLUS, INTEGER:2]`
+- *The evaluate.py Lexer*: Same logic here put the tokens represents HTML tags, variables of expressions. For example ``<meta>`` is a tag but ``{{ name }}`` is a variable. For example let's take the expression: `(2*5) + 2`. Once it has been "tokenized", it will look like this: `[LPAREN, INTEGER:2, MUL, INTEGER:5, RPAREN, PLUS, INTEGER:2]`
 
-- The engine.py Lexer: This Lexer traverses a string and replaces various operators, terms or factors by the appropriate Token. For example let's take the expression: `<h1>{{ name }}</h1>`. Once it has been "tokenized", it will look like this: `[TAG:<h1>:0, VARIABLE: name :5, TAG:</h1>:14]`
+- *The engine.py Lexer*: This Lexer traverses a string and replaces various operators, terms or factors by the appropriate Token. For example let's take the expression: `<h1>{{ name }}</h1>`. Once it has been "tokenized", it will look like this: `[TAG:<h1>:0, VARIABLE: name :5, TAG:</h1>:14]`
 
 ### The Parser
 The parser has the much harder job of turning the stream of "tokens" produced by the lexer into a parse tree representing the structure of the parsed language.
 
-- The evaluate.py Parser: This parser is an implementation of the shunting yard algorithm. It transforms our tokens into a more readable version of the demanded expression.
+- *The evaluate.py Parser*: This parser is an implementation of the shunting yard algorithm. It transforms our tokens into a more readable version of the demanded expression.
 Let's continue our `(2*5) + 2` example. Once it has been parsed, it will look like this: `((2, MUL, 5), PLUS, 2)`
 
-- The engine.py Parser: I must confess that the design of this algorithm was done by yours truly so it might not be the most optimized of things! The idea remains the same. We are decomposing our HTML file into an AST. Let's continue our `<h1>{{ name }}</h1>` example. Once it has been parsed, it will look like this: `{h1: { name : {}}}`. So we transformed our HTML into a nested python dictionnary.
+- *The engine.py Parser*: I must confess that the design of this algorithm was done by yours truly so it might not be the most optimized of things! The idea remains the same. We are decomposing our HTML file into an AST. Let's continue our `<h1>{{ name }}</h1>` example. Once it has been parsed, it will look like this: `{h1: { name : {}}}`. So we transformed our HTML into a nested python dictionnary.
 
 ### The Interpreter
 An interpreter is a computer program that is used to directly execute program instructions written using one of the many high-level programming languages.
 
-- The evaluate.py Interpreter: The final stage of the process. The parsed expression is computed and turned into the wanted output. In our example the interpreter will return `12`.
+- *The evaluate.py Interpreter*: The final stage of the process. The parsed expression is computed and turned into the wanted output. In our example the interpreter will return `12`.
 
-- The engine.py Interpreter: With the engine, the job of the interpreter is to recursively traverse the nested dictionary and populate it with the various content of the HTML tags. Our result value for our previous example will therefore be `<h1>James</h1>` (assuming our variable matches to the string "James", more on that later).
+- *The engine.py Interpreter*: With the engine, the job of the interpreter is to recursively traverse the nested dictionary and populate it with the various content of the HTML tags. Our result value for our previous example will therefore be `<h1>James</h1>` (assuming our variable matches to the string "James", more on that later).
 
 ## Create a context 
 
