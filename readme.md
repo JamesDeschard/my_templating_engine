@@ -2,7 +2,7 @@
 
 Because the ``replace`` and ``format`` methods are too easy...
 
-## How does it work?
+## How does it work? Theoretically:
 
 This project has two main components, a small programming language (evaluate.py) and a templating engine (engine.py). The language is designed to evaluate expressions passed to the templating engine expression tags. For instance to evaluate ``{% if 10+10 * (4/2) == 10 %}`` we will pass this expression to the ``evaluate`` method of the evaluate.py file and will receive a boolean result. Using ``eval()`` would just be cheating... and dangerous!
 
@@ -29,7 +29,9 @@ An interpreter is a computer program that is used to directly execute program in
 
 - *The engine.py Interpreter*: With the engine, the job of the interpreter is to recursively traverse the nested dictionary and populate it with the various content of the HTML tags. Our result value for our previous example will therefore be `<h1>James</h1>` (assuming our variable matches to the string "James", more on that later).
 
-## Create a context 
+## How does it work? Practically:
+
+### Create a context 
 
 The context is a dictionnary containing the data you want to integrate in your HTML document.
 
@@ -41,12 +43,12 @@ context = {
 }
 ```
 
-## Create an HTML template
+### Create an HTML template
 
 Templates are to be added to the templates directory.
 Once you have added your boilerplate markup, you can add expressions and variables from your context into it.
 
-### Variables
+#### Variables
 
 You can use ``{{ }}`` tags to add a variable.
 
@@ -63,7 +65,7 @@ Variables can also be nested
 ...
 ```
 
-### Expressions
+#### Expressions
 
 Two types of expressions are currently supported, for loops and if statements. You can cumulate conditions with the `else` and `else` tags.
 You can use ``{% %}`` tags to add forloops or conditions. Expressions start with an ``if`` or ``for`` tag and end with an ``endif`` or ``endfor`` tag. You can obviously integrate variables to expressions.
@@ -89,7 +91,7 @@ or
 {% endfor %}
 ```
 
-## Call the render_to_string() method to create your new HTML template
+### Call the render_to_string() method to create your new HTML template
  
 To add data to a template, call the render_to_string method. It takes two parameters, the previously defined context and the name of your html file.
 For example:
