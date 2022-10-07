@@ -198,7 +198,7 @@ class Lexer:
             elif self.current_char == '>':
                 self.tokens.append(self.make_greater_than())
                 self.advance()
-            
+        print(self.tokens)
         return self.tokens
 
     def make_string(self):
@@ -222,7 +222,6 @@ class Lexer:
             self.advance()
             escape_character = False
 
-        self.advance()
         return Token(string, STRING)
     
     def make_less_than(self):
@@ -604,9 +603,11 @@ global_symbol_table.set("null", Number(0))
 def evaluate(expression):
     lexer = Lexer(expression)
     result = lexer.get_tokens()
+    print(result)
 
     parser = Parser(result)
     result = parser.parse()
+    print(result)
     
     interpreter = Interpreter()
     context = Context('<program>')

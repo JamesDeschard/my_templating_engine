@@ -1,12 +1,40 @@
 # A custom templating engine made with Python
 
-## Create a context in you main.py file
+## How does it work?
+
+This project has two main components, a small programming language (the evaluate.py file) and a templating engine (engine.py). The language is designed to evaluate expressions passed to the templating engine expression tags. For instance to evaluate if {% if 10+10 * (4/2) == 10 %} we will pass this expression to the the evaluate method of the evaluate.py file "10+10 * (4/2) == 10" and will get a True/False result.
+
+### The Lexer
+
+The lexer just turns a meaningless string into a flat list of things like "number literal", "string literal", "identifier", or "operator", and can do things like recognizing reserved identifiers ("keywords") and discarding whitespace.
+
+- The evaluate.py Lexer: This Lexer traverses a string and replaces various operators, terms or factors by the appropriate Token. For example 'PLUS', 'MINUS' or 'LEFT PARENTHESIS'. For example let's take the expression: `<h1>{{ name }}</h1>`. Once it has been "tokenized", it will look like this: `[TAG:<h1>:0, VARIABLE: name :5, TAG:</h1>:14]`
+
+- The engine.py Lexer: Same logic here put the tokens represents HTML tags, variables of expressions. For example ``<meta>`` is a tag but ``{{ name }}`` is a variable. For example let's take the expression: `(2*5) + 2`. Once it has been "tokenized", it will look like this: `[LPAREN, INTEGER:2, MUL, INTEGER:5, RPAREN, PLUS, INTEGER:2]`
+
+### The Parser
+The parser has the much harder job of turning the stream of "tokens" produced by the lexer into a parse tree representing the structure of the parsed language.
+
+- The evaluate.py Parser: This parser is an implementation of the shunting yard algorithm. It transforms our tokens into a more readable version of the demanded expression.
+Let's continue our `(2*5) + 2` example. Once it has been parsed, it will look like this: `((2, MUL, 5), PLUS, 2)`
+
+- The engine.py Parser: I must confess that the design of this algorithm was done by yours truly so it might not be the most optimized of things! The idea remains the same. We are decomposing our HTML file into an AST. Let's continue our `<h1>{{ name }}</h1>` example. Once it has been parsed, it will look like this: `{h1: { name : {}}}`. So we transformed our HTML into a nested python dictionnary.
+
+### The Interpreter
+An interpreter is a computer program that is used to directly execute program instructions written using one of the many high-level programming languages.
+
+- The evaluate.py Interpreter: The final stage of the process. The parsed expression is computed and turned into the wanted output. In our example the interpreter will return `12`.
+
+- The engine.py Interpreter: With the engine, the job of the interpreter is to recursively traverse the nested dictionary and populate it with the various content of the HTML tags. Our result value for our previous example will therefore be `<h1>James</h1>` (assuming our variable matches to the string "James", more on that later).
+
+## Create a context 
 
 For example:
 
 ``` python
 context = {
     'title': 'Hello World!',
+    'name': 'James'
     'posts': get_json_data()
 }
 ```
@@ -17,13 +45,18 @@ Once you have added your base markup, you can add expressions and variables to i
 
 ### Expressions
 
-You can use`` {% %}`` tags to add forloops or conditions 
+Two types of expressions are currently supported, for loops and if statements. You can cumulate conditions with the `else` and `else` tags.
+You can use ``{% %}`` tags to add forloops or conditions. Expressions start with an ``if`` or ``for`` tag and end with an ``endif`` or ``endfor`` tag.
 
 For example:
 
 ``` html
 {% if title %}
-    <h1 class="title" style="color:red;">{{title}}</h1>
+    ...
+{% elif name %}
+    ...
+{% else %}
+    ...
 {% endif %}
 ```
 
@@ -38,24 +71,31 @@ or
 ### Variables
 
 You can use ``{{ }}`` tags to add a variable.
+``` html
+<h1>{{test.value}}</h1>
+```
+Variables can be used in forloops.
 
 For example:
 
 ``` html
+{% for post in posts %}
 <h2>{{post.title}}</h2>
 <p>{{post.body}}</p>
+{% endfor %}
 ```
 
 ## Call the render_to_string() method to create your new HTML template
 
-The render_to_string method takes two parameters, the previously defined context and the name of your html file. The html file must be in the root of your working directory.
-Like so:
+Templates are to be added to the templates directory. 
+To add data to a template, call the render_to_string method. It takes two parameters, the previously defined context and the name of your html file.
+For example:
 
 ``` python
-return render_to_string(template, context)
+def main():
+    template = 'index.html'
+    context = {
+        'title': 'Hello World !',
+    }
+    return render_to_string(template, context)
 ```
-
-
-## Parse the HTML
-
-You can also use this piece of software as a parser for your HTML. This will represent your document file in the form of a navigable AST.

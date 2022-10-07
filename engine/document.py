@@ -45,6 +45,12 @@ class Tag:
         self.inner_text = self.remove_tags_from_inner_text(inner_text)
         self.html_attrs = html_attrs
     
+    def get_html_tag_name(token):
+        return re.findall(r'\w+', token.content)[0]
+
+    def get_html_attributes(token):
+        return re.findall(r"""([^\s]+-?\w+)=["']?((?:.(?!["']?\s+(?:\S+)=|\s*\/?[>"']))+.)["']?""", token.content)
+    
     def remove_tags_from_inner_text(self, inner_text):
         cleaner = re.compile(r'<[^>]+>')
         all_inner_tags = re.findall(cleaner, inner_text)
@@ -55,19 +61,7 @@ class Tag:
             return cleaned_string
         
         return ''
-    
-    def find(self, identifier):
-        pass
-    
-    def findall(self, identifier):
-        pass
-    
-    def find_siblings(self, identifier):
-        pass
-    
-    def find_parents(self, identifier):
-        pass
-    
+            
     def opening(self):
         if self.html_attrs: 
             return f'''<{self.name} {' '.join(a[0] + '=' + '"' + a[1] + '"' for a in self.html_attrs)}>'''

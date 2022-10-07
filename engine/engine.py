@@ -13,7 +13,6 @@ from .utils import (BASE_DIR, add_tabulation_and_line_breaks, depth,
 EXPRESSION = 'EXPRESSION'
 VARIABLE = 'VARIABLE'
 TAG = 'TAG'
-EXTENDS = 'EXTENDS'
 
 
 class Token:
@@ -325,7 +324,9 @@ def render_to_string(template, context):
         raise Exception('Template does not exist')
     
     result = Lexer(template).tokenize()
+    print(result)
     result = Parser(result, template, context).parse(result)
+    print(result.tree)
     result = Interpreter(result, context)
     print(result.document_string)
 
