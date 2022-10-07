@@ -10,7 +10,7 @@ This project has two main components, a small programming language (evaluate.py)
 
 The lexer just turns a meaningless string into a flat list of things like "number literal", "string literal", "identifier", or "operator", and can do things like recognizing reserved identifiers ("keywords") and discarding whitespace.
 
-- *The evaluate.py Lexer*: This Lexer traverses a string and replaces various operators, terms or factors by the appropriate Token. For example ``<meta>`` is a tag but ``{{ name }}`` is a variable. For example let's take the expression: `(2*5) + 2`. Once it has been "tokenized", it will look like this: `[LPAREN, INTEGER:2, MUL, INTEGER:5, RPAREN, PLUS, INTEGER:2]`
+- *The evaluate.py Lexer*: This Lexer traverses a string and replaces various operators, terms or factors by the appropriate Token. For example let's take the expression: `(2*5) + 2`. Once it has been "tokenized", it will look like this: `[LPAREN, INTEGER:2, MUL, INTEGER:5, RPAREN, PLUS, INTEGER:2]`
 
 - *The engine.py Lexer*: Same logic here put the tokens represent HTML tags, variables of expressions. For example let's take the expression: `<h1>{{ name }}</h1>`. Once it has been "tokenized", it will look like this: `[TAG:<h1>:0, VARIABLE: name :5, TAG:</h1>:14]`
 
