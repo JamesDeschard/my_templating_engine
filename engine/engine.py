@@ -49,7 +49,7 @@ class Token:
             return self.content
 
     def __repr__(self) -> str:
-        return f'{self.type}:{self.specs}:{self.index}'
+        return f'{self.type}:{self.specs}'
 
          
 class Lexer:    
@@ -324,9 +324,7 @@ def render_to_string(template, context):
         raise Exception('Template does not exist')
     
     result = Lexer(template).tokenize()
-    print(result)
     result = Parser(result, template, context).parse(result)
-    print(result.tree)
     result = Interpreter(result, context)
     print(result.document_string)
 
