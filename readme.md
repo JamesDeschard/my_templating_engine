@@ -45,17 +45,34 @@ context = {
 
 Once you have added your boilerplate markup, you can add expressions and variables from your context into it.
 
+### Variables
+
+You can use ``{{ }}`` tags to add a variable.
+
+``` html
+<h1>{{ value }}</h1>
+```
+
+Variables can be used in forloops. They can also be nested
+
+``` html
+<h1>{{ values.value }}</h1>
+<h2>{{ values.value.first }}<H2>
+<h3>{{ values.value.first.second }}<h3>
+...
+```
+
 ### Expressions
 
 Two types of expressions are currently supported, for loops and if statements. You can cumulate conditions with the `else` and `else` tags.
-You can use ``{% %}`` tags to add forloops or conditions. Expressions start with an ``if`` or ``for`` tag and end with an ``endif`` or ``endfor`` tag.
+You can use ``{% %}`` tags to add forloops or conditions. Expressions start with an ``if`` or ``for`` tag and end with an ``endif`` or ``endfor`` tag. You can obviously integrate variables to expressions.
 
 For example:
 
 ``` html
 {% if title %}
     ...
-{% elif name %}
+{% elif person.name %}
     ...
 {% else %}
     ...
@@ -66,24 +83,8 @@ or
 
 ``` html
 {% for post in posts %}
-    <p>This markup will be added for each post in the posts variable!</p>
-{% endfor %}
-```
-
-### Variables
-
-You can use ``{{ }}`` tags to add a variable.
-``` html
-<h1>{{test.value}}</h1>
-```
-Variables can be used in forloops.
-
-For example:
-
-``` html
-{% for post in posts %}
-<h2>{{post.title}}</h2>
-<p>{{post.body}}</p>
+    <h1>{{ post.title }}</h1>
+    <p>{{post.body}}</p>
 {% endfor %}
 ```
 
