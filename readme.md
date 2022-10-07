@@ -2,7 +2,7 @@
 
 ## How does it work?
 
-This project has two main components, a small programming language (the evaluate.py file) and a templating engine (engine.py). The language is designed to evaluate expressions passed to the templating engine expression tags. For instance to evaluate if ``{% if 10+10 * (4/2) == 10 %}`` we will pass this expression to the the evaluate method of the evaluate.py file "10+10 * (4/2) == 10" and will get a True/False result.
+This project has two main components, a small programming language (the evaluate.py file) and a templating engine (engine.py). The language is designed to evaluate expressions passed to the templating engine expression tags. For instance to evaluate ``if {% if 10+10 * (4/2) == 10 %}`` we will pass this expression to the the evaluate method of the evaluate.py file ``"10+10 * (4/2) == 10"`` and will get a ``True``or ``False`` result.
 
 ### The Lexer
 
