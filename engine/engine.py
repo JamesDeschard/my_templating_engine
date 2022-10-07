@@ -1,5 +1,6 @@
 import codecs
 import os
+import re
 from pathlib import Path
 
 from .document import (Document, Expression, RetrieveVarsFromExpression, Tag,
@@ -130,12 +131,13 @@ class Parser:
     and advancing the while loop by the length of the
     get_index of the closing tag.
     """
-    def __init__(self, tokens) -> None:
+    def __init__(self, tokens, template, context) -> None:
         self.tokens = tokens
         self.tag_list = []
+        self.context = context
         
         self.current_sibling = []
-        self.document = Document()
+        self.document = Document(template)
         self.limit = 0
         
     def set_limit(self, tag):
@@ -183,15 +185,19 @@ class Parser:
             if token.type == TAG and '</' not in token.content:   
                 tag_name = get_html_tag_name(token)                                   
                 tag_index = get_closing_tag_index(index, tag_name, tokens) 
+                inner_text = str()
                 
                 if tag_index:
                     closing_tag = self.tokens[tag_index]
                     start, end = token.index, closing_tag.index  
+                    inner_text = self.document.template[start:end + len(closing_tag.content)]
+                    
                 else:
                     start, end = token.index, token.index + len(token.content)
                 
                 html_attrs = get_html_attributes(token)
-                self.add_tag_to_document(Tag(tag_name, start, end, html_attrs=html_attrs))
+                tag = Tag(tag_name, start, end, inner_text, html_attrs=html_attrs, context=self.context)
+                self.add_tag_to_document(tag)
                     
             elif token.type == VARIABLE:
                 name = token.content
@@ -211,12 +217,16 @@ class Parser:
 
 
 class Interpreter:
+    """
+    Time complexity O(nlogn)
+    """
     def __init__(self, document, context) -> None:
         self.document = document
         self.context = context
         self.document.build_document()
         self.depth = depth(self.document.tree)
         
+        self.variables = list()
         self.current_tag = str()
         self.document_string = str()
         
@@ -232,8 +242,11 @@ class Interpreter:
         current_string = tag.opening()
         if tag.content:
             self.reset_current_string()
-            current_string += self.render(tag.content)
+            current_string += tag.inner_text + self.render(tag.content)
         
+        else:
+            current_string += tag.inner_text
+
         current_depth = self.depth.get(tag)
         return current_string + add_tabulation_and_line_breaks(
             tag.closing(), 
@@ -242,8 +255,10 @@ class Interpreter:
     
     def visit_variable(self, variable):
         var_type = variable.__class__.__name__
-        return RetrieveVarsFromExpression(var_type, variable.name, self.context).manager()
-    
+        replacement = RetrieveVarsFromExpression(var_type, variable.name, self.context).manager()
+        self.variables.append((variable.name, replacement))
+        return ''
+
     def visit_expression(self, expression):
         expression_command, expression_condition = expression.evaluate_expression(self.context)
 
@@ -277,6 +292,7 @@ class Interpreter:
                     self.visit_tag(parent), 
                     tabulation=self.depth.get(parent) - 1
                 )
+                
             elif isinstance(parent, Variable):
                 self.current_tag += self.visit_variable(parent)
             elif isinstance(parent, Expression):
@@ -284,7 +300,11 @@ class Interpreter:
             
             if parent == list(self.document.tree.keys())[-1]:
                 self.document_string += self.current_tag.strip()
-            
+                for var_name, replacement in self.variables:
+                    vars = re.findall(r'{{\s*{0}+\s*}}'.format(var_name), self.document_string)
+                    vars = '{' + vars[0] + '}' 
+                    self.document_string = self.document_string.replace(vars, replacement, 1)
+                     
         return self.current_tag
 
 
@@ -305,7 +325,7 @@ def render_to_string(template, context):
         raise Exception('Template does not exist')
     
     result = Lexer(template).tokenize()
-    result = Parser(result).parse(result)
+    result = Parser(result, template, context).parse(result)
     result = Interpreter(result, context)
     print(result.document_string)
 

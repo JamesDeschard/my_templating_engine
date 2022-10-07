@@ -13,7 +13,7 @@ def main():
         'title': 'forloop',
         'test': {'name': 'James', 'age': 20, 'surname': 'Bond'},
         'posts': get_json_data(),
-        'name': 'James',
+        'name': 'Bob',
         'age': 20
     }
     return render_to_string(template, context)

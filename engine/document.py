@@ -1,6 +1,4 @@
-from asyncore import loop
 import pprint
-import string
 import re
 
 from .evaluate import evaluate
@@ -8,8 +6,10 @@ from .utils import SELF_CLOSING_TAGS, RetrieveVarsFromExpression
 
 
 class Document:
-    def __init__(self) -> None:
+    def __init__(self, template) -> None:
+        self.template = template
         self.tree = dict()
+        self.var_replacement = 0
         
     def build_document(self, children=None):
         if children is None:
@@ -27,15 +27,46 @@ class Document:
         
         
 class Tag:
-    # self.content should be called self.children
-    # Make content attribute to register content which is not in child tag
-    def __init__(self, name, start, end, content=dict(), html_attrs=list()) -> None:
+    def __init__(self, 
+                 name, 
+                 start, 
+                 end, 
+                 inner_text,
+                 context,
+                 content=dict(), 
+                 html_attrs=list(), 
+        ) -> None:
+        
         self.name = name
         self.start = start
         self.end = end
-        
+        self.context = context
         self.content = content
+        self.inner_text = self.remove_tags_from_inner_text(inner_text)
         self.html_attrs = html_attrs
+    
+    def remove_tags_from_inner_text(self, inner_text):
+        cleaner = re.compile(r'<[^>]+>')
+        all_inner_tags = re.findall(cleaner, inner_text)
+        is_nested = len(all_inner_tags) == 2
+        if is_nested:
+            cleaner = re.compile(r'<[^>]+>')
+            cleaned_string = cleaner.sub('', inner_text).strip()
+            return cleaned_string
+        
+        return ''
+    
+    def find(self, identifier):
+        pass
+    
+    def findall(self, identifier):
+        pass
+    
+    def find_siblings(self, identifier):
+        pass
+    
+    def find_parents(self, identifier):
+        pass
     
     def opening(self):
         if self.html_attrs: 
@@ -96,9 +127,9 @@ class Expression:
                 return expression_command, False
             
             elif expression_command == 'else':
-                if not list(filter(lambda x: x, IS_BLOCK.values())):
+                if not tuple(filter(lambda x: x, IS_BLOCK.values())):
                     return expression_command, True
-                else:
+                else: 
                     return expression_command, False
                 
             expression = RetrieveVarsFromExpression(expression_command, expression_content, self.context).manager()
@@ -106,8 +137,7 @@ class Expression:
             evaluation = True if evaluation else False
             IS_BLOCK[expression_command] = evaluation
             return expression_command, evaluation
-        
-            
+          
         else:
             raise ValueError(f"Invalid expression command: {expression_command}")
 

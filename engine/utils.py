@@ -79,7 +79,7 @@ def get_html_attributes(token):
     """
     Get the attributes of the HTML tag (style, classes, id...).
     """
-    return re.findall(r"""(\w+)=["']?((?:.(?!["']?\s+(?:\S+)=|\s*\/?[>"']))+.)["']?""", token.content)
+    return re.findall(r"""([^\s]+-?\w+)=["']?((?:.(?!["']?\s+(?:\S+)=|\s*\/?[>"']))+.)["']?""", token.content)
 
 
 def get_closing_expression_index(start_index, token, tokens, tag_name=None):
