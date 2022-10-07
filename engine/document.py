@@ -54,7 +54,7 @@ class Tag:
     def remove_tags_from_inner_text(self, inner_text):
         cleaner = re.compile(r'<[^>]+>')
         all_inner_tags = re.findall(cleaner, inner_text)
-        is_nested = not len(all_inner_tags) == 2
+        is_nested = len(all_inner_tags) > 2
         if not is_nested:
             cleaned_string = cleaner.sub('', inner_text).strip()
             return cleaned_string
