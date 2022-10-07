@@ -32,7 +32,6 @@ class Tag:
                  start, 
                  end, 
                  inner_text,
-                 context,
                  content=dict(), 
                  html_attrs=list(), 
         ) -> None:
@@ -40,18 +39,20 @@ class Tag:
         self.name = name
         self.start = start
         self.end = end
-        self.context = context
         self.content = content
-        self.inner_text = self.remove_tags_from_inner_text(inner_text)
+        self.inner_text = self.remove_tags(inner_text)
         self.html_attrs = html_attrs
     
     def get_html_tag_name(token):
         return re.findall(r'\w+', token.content)[0]
 
     def get_html_attributes(token):
-        return re.findall(r"""([^\s]+-?\w+)=["']?((?:.(?!["']?\s+(?:\S+)=|\s*\/?[>"']))+.)["']?""", token.content)
+        return re.findall(
+            r"""([^\s]+-?\w+)=["']?((?:.(?!["']?\s+(?:\S+)=|\s*\/?[>"']))+.)["']?""", 
+            token.content
+            )
     
-    def remove_tags_from_inner_text(self, inner_text):
+    def remove_tags(self, inner_text):
         cleaner = re.compile(r'<[^>]+>')
         all_inner_tags = re.findall(cleaner, inner_text)
         is_nested = len(all_inner_tags) > 2

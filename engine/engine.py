@@ -130,10 +130,9 @@ class Parser:
     and advancing the while loop by the length of the
     get_index of the closing tag.
     """
-    def __init__(self, tokens, template, context) -> None:
+    def __init__(self, tokens, template) -> None:
         self.tokens = tokens
         self.tag_list = []
-        self.context = context
         
         self.current_sibling = []
         self.document = Document(template)
@@ -195,7 +194,7 @@ class Parser:
                     start, end = token.index, token.index + len(token.content)
                 
                 html_attrs = get_html_attributes(token)
-                tag = Tag(tag_name, start, end, inner_text, html_attrs=html_attrs, context=self.context)
+                tag = Tag(tag_name, start, end, inner_text, html_attrs=html_attrs)
                 self.add_tag_to_document(tag)
                     
             elif token.type == VARIABLE:
@@ -324,7 +323,7 @@ def render_to_string(template, context):
         raise Exception('Template does not exist')
     
     result = Lexer(template).tokenize()
-    result = Parser(result, template, context).parse(result)
+    result = Parser(result, template).parse(result)
     result = Interpreter(result, context)
     print(result.document_string)
 
