@@ -54,7 +54,7 @@ You can use ``{{ }}`` tags to add a variable.
 <h1>{{ value }}</h1>
 ```
 
-Variables can be used in forloops. They can also be nested
+Variables can also be nested
 
 ``` html
 <h1>{{ values.value }}</h1>
