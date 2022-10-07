@@ -20,7 +20,7 @@ The parser has the much harder job of turning the stream of "tokens" produced by
 - *The evaluate.py Parser*: This parser is an implementation of the shunting yard algorithm. It transforms our tokens into a more readable version of the demanded expression.
 Let's continue our `(2*5) + 2` example. Once it has been parsed, it will look like this: `((2, MUL, 5), PLUS, 2)`
 
-- *The engine.py Parser*: I must confess that the design of this algorithm was done by yours truly so it might not be the most optimized of things! The idea remains the same. We are decomposing our HTML file into an abstract syntax tree. Let's continue our `<h1>{{ name }}</h1>` example. Once it has been parsed, it will look like this: `{h1: { name : {}}}`. So we transformed our HTML into a nested python dictionnary. What is printed in this example is just a string representation (``__repr__``) of a Html Tag, Expression or Variable object which contains all the relevant information on its content.
+- *The engine.py Parser*: I must confess that the design of this algorithm was done by yours truly so it might not be the most optimized of things! The idea remains the same. We are decomposing our HTML file into an abstract syntax tree. Let's continue our `<h1>{{ name }}</h1>` example. Once it has been parsed, it will look like this: `{h1: { name : {}}}`. So we transformed our HTML into a nested python dictionnary. What is printed in this example is obviously just a string representation (``__repr__``) of a Html Tag, Expression or Variable object which contains all the relevant information on its content.
 
 ### The Interpreter
 An interpreter is a computer program that is used to directly execute program instructions written using one of the many high-level programming languages.
