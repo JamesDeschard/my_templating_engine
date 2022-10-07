@@ -4,7 +4,7 @@ Because the ``replace`` and ``format`` methods are too easy...
 
 ## How does it work?
 
-This project has two main components, a small programming language (evaluate.py) and a templating engine (engine.py). The language is designed to evaluate expressions passed to the templating engine expression tags. For instance to evaluate ``{% if 10+10 * (4/2) == 10 %}`` we will pass this expression to the evaluate method of the evaluate.py file and will receive a ``True``or ``False`` result.
+This project has two main components, a small programming language (evaluate.py) and a templating engine (engine.py). The language is designed to evaluate expressions passed to the templating engine expression tags. For instance to evaluate ``{% if 10+10 * (4/2) == 10 %}`` we will pass this expression to the ``evaluate`` method of the evaluate.py file and will receive a ``True``or ``False`` result.
 
 ### The Lexer
 
