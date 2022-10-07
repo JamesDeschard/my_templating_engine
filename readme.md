@@ -41,8 +41,9 @@ context = {
 }
 ```
 
-## Create an HTML template in the index.html file
+## Create an HTML template
 
+Templates are to be added to the templates directory.
 Once you have added your boilerplate markup, you can add expressions and variables from your context into it.
 
 ### Variables
@@ -89,8 +90,7 @@ or
 ```
 
 ## Call the render_to_string() method to create your new HTML template
-
-Templates are to be added to the templates directory. 
+ 
 To add data to a template, call the render_to_string method. It takes two parameters, the previously defined context and the name of your html file.
 For example:
 
