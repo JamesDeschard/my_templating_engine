@@ -1,5 +1,7 @@
 # A custom templating engine made with Python
 
+Because the ``replace`` and ``format`` methods are too easy...
+
 ## How does it work?
 
 This project has two main components, a small programming language (evaluate.py) and a templating engine (engine.py). The language is designed to evaluate expressions passed to the templating engine expression tags. For instance to evaluate ``if {% if 10+10 * (4/2) == 10 %}`` we will pass this expression to the the evaluate method of the evaluate.py file ``"10+10 * (4/2) == 10"`` and will get a ``True``or ``False`` result.
@@ -29,7 +31,7 @@ An interpreter is a computer program that is used to directly execute program in
 
 ## Create a context 
 
-For example:
+The context is a dictionnary containing the data you want to integrate in your HTML document.
 
 ``` python
 context = {
@@ -41,7 +43,7 @@ context = {
 
 ## Create an HTML template in the index.html file
 
-Once you have added your base markup, you can add expressions and variables to it. Similar to twig or jinja.
+Once you have added your boilerplate markup, you can add expressions and variables from your context into it.
 
 ### Expressions
 
